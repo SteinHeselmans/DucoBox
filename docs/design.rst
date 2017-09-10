@@ -13,8 +13,16 @@ Class diagram
 .. uml::
 
     @startuml
+
+    DucoNode <|-- DucoBox
+    DucoBox o-- DucoNode
+
     class DucoBox {
         +__init__()
+    }
+
+    class DucoNode {
+        +__init__(tty)
     }
 
     @enduml
