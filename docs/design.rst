@@ -18,7 +18,8 @@ Class diagram
     DucoBox o-- DucoNode
 
     class DucoBox {
-        +__init__()
+        +__init__(tty)
+        +get_nodes()
     }
 
     class DucoNode {
