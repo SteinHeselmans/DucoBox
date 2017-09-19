@@ -8,7 +8,7 @@ except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import sys
 from setuptools_scm import get_version
-from serial import Serial
+from serial import Serial, SerialException
 
 __version__ = get_version()
 
@@ -77,6 +77,7 @@ class DucoBox(DucoNode):
             cfgfile (str): Name of the network configuration file
         '''
         super(DucoBox, self).__init__('DucoBox', 0)
+        self._serial = None
         self.nodes = []
         self._config_serial(port)
         self.cfgfile = cfgfile
@@ -109,7 +110,10 @@ class DucoBox(DucoNode):
         Args:
             port (str): Name of the serial port
         '''
-        self._serial = Serial(port=port, baudrate=115200, timeout=1)
+        try:
+            self._serial = Serial(port=port, baudrate=115200, timeout=1)
+        except SerialException:
+            print('Could not open {port}, continuing in offline mode'.format(port=port))
 
     def _execute(self, command):
         '''
@@ -129,7 +133,8 @@ class DucoBox(DucoNode):
         '''
         Get nodes in the DucoBox's network
         '''
-        self._execute(self.LIST_NETWORK_COMMAND)
+        if self._serial:
+            self._execute(self.LIST_NETWORK_COMMAND)
         # TODO: parse reply and store nodes information
         return self.nodes
 
