@@ -18,12 +18,14 @@ Class diagram
     DucoBox o-- DucoNode
 
     class DucoBox {
-        +__init__(tty)
+        +__init__(port, cfgfile)
         +get_nodes()
+        +load()
+        +store()
     }
 
     class DucoNode {
-        +__init__(tty)
+        +__init__(name, address)
     }
 
     @enduml
