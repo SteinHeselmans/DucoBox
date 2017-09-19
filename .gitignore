@@ -95,3 +95,6 @@ pip-selfcheck.json
 # vim
 *.swp
 
+# Project stuff
+duco_network.ini
+
