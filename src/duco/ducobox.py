@@ -82,6 +82,17 @@ class DucoBox(DucoNode):
         self._config_serial(port)
         self.cfgfile = cfgfile
 
+    def is_online(self):
+        '''
+        Check if DucoBox is connected to serial port
+
+        Returns:
+            True if DucoBox is connected to given serial port, False otherwise
+        '''
+        if self._serial:
+            return True
+        return False
+
     def store(self):
         '''
         Store to network configuration file
@@ -133,13 +144,22 @@ class DucoBox(DucoNode):
         '''
         Get nodes in the DucoBox's network
         '''
-        if self._serial:
+        if self.is_online():
             self._execute(self.LIST_NETWORK_COMMAND)
         # TODO: parse reply and store nodes information
         return self.nodes
 
 
 def ducobox_wrapper(args):
+    '''
+    Main wrapper for DucoBox program
+
+    Args:
+        args (list): arguments as passed to program
+
+    Returns:
+        0 on success, error code otherwise
+    '''
     parser = argparse.ArgumentParser(prog='ducobox')
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('-p', '--port', type=str, dest='port',
@@ -151,9 +171,15 @@ def ducobox_wrapper(args):
     args = parser.parse_args(args)
 
     box = DucoBox(port=args.port, cfgfile=args.network)
+
     box.get_nodes()
+
     box.load()
-    box.store()
+
+    if box.is_online():
+        box.store()
+
+    return 0
 
 
 def main():
