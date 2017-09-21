@@ -7,10 +7,26 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import sys
+import logging
 from setuptools_scm import get_version
 from serial import Serial, SerialException
 
 __version__ = get_version()
+
+DEFAULT_LOGLEVEL = 'info'
+
+
+def set_logging_level(loglevel):
+    '''
+    Set the logging level
+
+    Args:
+        loglevel String representation of the loglevel
+    '''
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(level=numeric_level, format='%(message)s')
 
 
 class DucoNode(object):
@@ -24,6 +40,7 @@ class DucoNode(object):
             name (str): Name of the node
             address (str): Address of the node within the network
         '''
+        logging.info('Found node {node} at {address}'.format(node=name, address=address))
         self.address = str(address)
         self.name = name
 
@@ -60,7 +77,7 @@ class DucoNode(object):
             self.name = cfgparser.get(section, 'name')
             # self.address = cfgparser.get(section, 'address')
         except NoSectionError:
-            print('Node {address} not found in network configuration file, adding...'.format(address=self.address))
+            logging.debug('Node {address} not found in network configuration file, adding...'.format(address=self.address))
 
 
 class DucoBox(DucoNode):
@@ -76,6 +93,7 @@ class DucoBox(DucoNode):
             port (str): Name of the serial port
             cfgfile (str): Name of the network configuration file
         '''
+        logging.info('Welcome to DucoBox')
         super(DucoBox, self).__init__('DucoBox', 0)
         self._serial = None
         self.nodes = []
@@ -97,22 +115,26 @@ class DucoBox(DucoNode):
         '''
         Store to network configuration file
         '''
+        logging.debug('Storing network configuration...')
         cfgparser = ConfigParser()
         super(DucoBox, self)._store(cfgparser)
         for node in self.nodes:
             node._store(cfgparser)
         with open(self.cfgfile, 'w') as cfgfile:
             cfgparser.write(cfgfile)
+        logging.debug('Store finished')
 
     def load(self):
         '''
         Load from network configuration file
         '''
+        logging.debug('Loading network configuration...')
         cfgparser = ConfigParser()
         cfgparser.read(self.cfgfile)
         super(DucoBox, self)._load(cfgparser)
         for node in self.nodes:
             node._load(cfgparser)
+        logging.debug('Load finished')
 
     def _config_serial(self, port):
         '''
@@ -124,7 +146,8 @@ class DucoBox(DucoNode):
         try:
             self._serial = Serial(port=port, baudrate=115200, timeout=1)
         except SerialException:
-            print('Could not open {port}, continuing in offline mode'.format(port=port))
+            logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
+        logging.debug('Opened serial port {port}'.format(port=port))
 
     def _execute(self, command):
         '''
@@ -135,9 +158,10 @@ class DucoBox(DucoNode):
         Returns:
             str: Received answer
         '''
+        logging.debug('Serial command:\n{command}'.format(command=command))
         self._serial.write(command.encode('utf-8'))
         reply = str(self._serial.readline())
-        print(reply)
+        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
         return reply
 
     def get_nodes(self):
@@ -145,6 +169,7 @@ class DucoBox(DucoNode):
         Get nodes in the DucoBox's network
         '''
         if self.is_online():
+            logging.info('Searching network...')
             self._execute(self.LIST_NETWORK_COMMAND)
         # TODO: parse reply and store nodes information
         return self.nodes
@@ -162,6 +187,9 @@ def ducobox_wrapper(args):
     '''
     parser = argparse.ArgumentParser(prog='ducobox')
     parser.add_argument('--version', action='version', version=__version__)
+    parser.add_argument('-l', '--loglevel', dest='loglevel', default=DEFAULT_LOGLEVEL,
+                        action='store', required=False,
+                        help='Level for logging (strings from logging python package)')
     parser.add_argument('-p', '--port', type=str, dest='port',
                         help='Serial port to connect to DucoBox',
                         required=True, action='store',)
@@ -169,6 +197,8 @@ def ducobox_wrapper(args):
                         help='File where the network configuration is stored',
                         default='duco_network.ini', action='store',)
     args = parser.parse_args(args)
+
+    set_logging_level(args.loglevel)
 
     box = DucoBox(port=args.port, cfgfile=args.network)
 
