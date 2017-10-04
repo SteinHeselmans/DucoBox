@@ -8,7 +8,7 @@ from serial import Serial
 import duco.ducobox as dut
 
 
-class TestDucoBox(TestCase):
+class TestDucoInterface(TestCase):
 
     MOCK_PORT_NAME = '/dev/my/mocked_serial_port'
 
@@ -20,7 +20,7 @@ class TestDucoBox(TestCase):
     def test_ducobox(self, serial_mock):
         serial_mock_object = MagicMock(spec=Serial)
         serial_mock.return_value = serial_mock_object
-        box = dut.DucoBox(self.MOCK_PORT_NAME)
+        box = dut.DucoInterface(self.MOCK_PORT_NAME)
 
         with open('tests/cmd_network.txt') as cmdfile:
             serial_mock_object.readline.return_value = cmdfile.read()

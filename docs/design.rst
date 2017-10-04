@@ -14,10 +14,14 @@ Class diagram
 
     @startuml
 
+    DucoInterface o-- DucoNode
     DucoNode <|-- DucoBox
-    DucoBox o-- DucoNode
+    DucoNode <|-- DucoBoxSensor
+    DucoBoxSensor <|-- DucoBoxHumiditySensor
+    DucoBoxSensor <|-- DucoBoxCO2Sensor
+    DucoNode <|-- DucoUserControl
 
-    class DucoBox {
+    class DucoInterface {
         +__init__(port, cfgfile)
         +get_nodes()
         +load()
@@ -25,7 +29,31 @@ Class diagram
     }
 
     class DucoNode {
-        +__init__(name, address)
+        +{abstract}{static} TYPE = None
+        +__init__(number, address)
+    }
+
+    class DucoBox {
+        +{static} TYPE = 'BOX'
+        +__init__(number, address)
+    }
+
+    class DucoBoxSensor {
+    }
+
+    class DucoBoxHumiditySensor {
+        +{static} TYPE = 'UCRH'
+        +__init__(number, address)
+    }
+
+    class DucoBoxCO2Sensor {
+        +{static} TYPE = 'UCCO2'
+        +__init__(number, address)
+    }
+
+    class DucoUserControl {
+        +{static} TYPE = 'UCBAT'
+        +__init__(number, address)
     }
 
     @enduml

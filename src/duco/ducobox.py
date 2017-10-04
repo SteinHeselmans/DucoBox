@@ -31,7 +31,9 @@ def set_logging_level(loglevel):
 
 
 class DucoNode(object):
-    '''Class for holding a DucoBox node object'''
+    '''Class for holding a DucoNode object: a generic device in the Duco network'''
+
+    TYPE = None
 
     def __init__(self, number, address):
         '''
@@ -92,21 +94,90 @@ class DucoNode(object):
 
 
 class DucoBox(DucoNode):
-    '''Class for holding a DucoBox object'''
+    '''Class for a Duco box device'''
+
+    TYPE = 'BOX'
+
+    def __init__(self, number, address):
+        '''
+        Initializer for a Duco box device
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+        '''
+        super(DucoBox, self).__init__(number, address)
+
+
+class DucoBoxSensor(DucoNode):
+    '''Class for a sensor inside the Duco box device'''
+
+    pass
+
+
+class DucoBoxHumiditySensor(DucoBoxSensor):
+    '''Class for a humidity sensor inside the Duco box device'''
+
+    TYPE = 'UCRH'
+
+    def __init__(self, number, address):
+        '''
+        Initializer for a humidity sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+        '''
+        super(DucoBoxSensor, self).__init__(number, address)
+
+
+class DucoBoxCO2Sensor(DucoBoxSensor):
+    '''Class for a CO2 sensor inside the Duco box device'''
+
+    TYPE = 'UCCO2'
+
+    def __init__(self, number, address):
+        '''
+        Initializer for a CO2 sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+        '''
+        super(DucoBoxSensor, self).__init__(number, address)
+
+
+class DucoUserControl(DucoNode):
+    '''Class for a user control device inside the Duco box network'''
+
+    TYPE = 'UCBAT'
+
+    def __init__(self, number, address):
+        '''
+        Initializer for a user control device inside the Duco network
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+        '''
+        super(DucoNode, self).__init__(number, address)
+
+
+class DucoInterface(object):
+    '''Class for interfacing with Duco devices'''
 
     LIST_NETWORK_COMMAND = 'network'
-    MATCH_NETWORK_COMMAND = re.compile('^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+).*$')
+    MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''
-        Initializer for a DucoBox
+        Initializer for a DucoInterface
 
         Args:
             port (str): Name of the serial port
             cfgfile (str): Name of the network configuration file
         '''
-        logging.info('Welcome to DucoBox')
-        super(DucoBox, self).__init__('DucoBox', 0)
+        logging.info('Welcome to Duco Interface')
         self._serial = None
         self.nodes = []
         self._config_serial(port)
@@ -114,10 +185,10 @@ class DucoBox(DucoNode):
 
     def is_online(self):
         '''
-        Check if DucoBox is connected to serial port
+        Check if DucoInterface is connected to serial port
 
         Returns:
-            True if DucoBox is connected to given serial port, False otherwise
+            True if DucoInterface is connected to given serial port, False otherwise
         '''
         if self._serial:
             return True
@@ -129,7 +200,7 @@ class DucoBox(DucoNode):
         '''
         logging.debug('Storing network configuration...')
         cfgparser = ConfigParser()
-        super(DucoBox, self)._store(cfgparser)
+        super(DucoInterface, self)._store(cfgparser)
         for node in self.nodes:
             node._store(cfgparser)
         with open(self.cfgfile, 'w') as cfgfile:
@@ -143,7 +214,6 @@ class DucoBox(DucoNode):
         logging.debug('Loading network configuration...')
         cfgparser = ConfigParser()
         cfgparser.read(self.cfgfile)
-        super(DucoBox, self)._load(cfgparser)
         for node in self.nodes:
             node._load(cfgparser)
         logging.debug('Load finished')
@@ -178,13 +248,13 @@ class DucoBox(DucoNode):
 
     def get_nodes(self):
         '''
-        Get nodes in the DucoBox's network
+        Get nodes in the DucoInterface's network
         '''
         if self.is_online():
             logging.info('Searching network...')
             reply = self._execute(self.LIST_NETWORK_COMMAND)
             for line in reply.split('\n'):
-                match = self.MATCH_NETWORK_COMMAND.search(line)
+                match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
                     node = DucoNode(match.group('node'), match.group('address'))
                     self.nodes.append(node)
@@ -193,7 +263,7 @@ class DucoBox(DucoNode):
 
 def ducobox_wrapper(args):
     '''
-    Main wrapper for DucoBox program
+    Main wrapper for DucoInterface program
 
     Args:
         args (list): arguments as passed to program
@@ -207,7 +277,7 @@ def ducobox_wrapper(args):
                         action='store', required=False,
                         help='Level for logging (strings from logging python package)')
     parser.add_argument('-p', '--port', type=str, dest='port',
-                        help='Serial port to connect to DucoBox',
+                        help='Serial port to connect to DucoInterface',
                         required=True, action='store',)
     parser.add_argument('-n', '--network', type=str, dest='network',
                         help='File where the network configuration is stored',
@@ -216,7 +286,7 @@ def ducobox_wrapper(args):
 
     set_logging_level(args.loglevel)
 
-    box = DucoBox(port=args.port, cfgfile=args.network)
+    box = DucoInterface(port=args.port, cfgfile=args.network)
 
     box.get_nodes()
 
