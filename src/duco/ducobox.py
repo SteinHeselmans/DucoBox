@@ -7,6 +7,7 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import sys
+import re
 import logging
 from setuptools_scm import get_version
 from serial import Serial, SerialException
@@ -32,17 +33,18 @@ def set_logging_level(loglevel):
 class DucoNode(object):
     '''Class for holding a DucoBox node object'''
 
-    def __init__(self, name, address):
+    def __init__(self, number, address):
         '''
         Initializer for a Duco Node
 
         Args:
-            name (str): Name of the node
+            number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        logging.info('Found node {node} at {address}'.format(node=name, address=address))
+        logging.info('Found node {node} at {address}'.format(node=number, address=address))
+        self.number = str(number)
         self.address = str(address)
-        self.name = name
+        self.name = 'NoName'
 
     def __eq__(self, other):
         '''
@@ -79,11 +81,21 @@ class DucoNode(object):
         except NoSectionError:
             logging.debug('Node {address} not found in network configuration file, adding...'.format(address=self.address))
 
+    def __str__(self):
+        '''
+        Convert duco node object to string
+
+        Returns:
+            str: String representation of the object
+        '''
+        return self.name + ' @ ' + self.address
+
 
 class DucoBox(DucoNode):
     '''Class for holding a DucoBox object'''
 
     LIST_NETWORK_COMMAND = 'network'
+    MATCH_NETWORK_COMMAND = re.compile('^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+).*$')
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''
@@ -170,8 +182,12 @@ class DucoBox(DucoNode):
         '''
         if self.is_online():
             logging.info('Searching network...')
-            self._execute(self.LIST_NETWORK_COMMAND)
-        # TODO: parse reply and store nodes information
+            reply = self._execute(self.LIST_NETWORK_COMMAND)
+            for line in reply.split('\n'):
+                match = self.MATCH_NETWORK_COMMAND.search(line)
+                if match:
+                    node = DucoNode(match.group('node'), match.group('address'))
+                    self.nodes.append(node)
         return self.nodes
 
 
