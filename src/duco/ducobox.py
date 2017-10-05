@@ -33,7 +33,7 @@ def set_logging_level(loglevel):
 class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
-    TYPE = None
+    KIND = None
 
     def __init__(self, number, address):
         '''
@@ -47,6 +47,19 @@ class DucoNode(object):
         self.number = str(number)
         self.address = str(address)
         self.name = 'NoName'
+
+    @classmethod
+    def get_subclasses(cls):
+        '''
+        Get a list of subclasses (recursively)
+
+        Returns:
+            The function returns an iterable containing all subclasses, and sub-subclasses of this class.
+        '''
+        for subclass in cls.__subclasses__():
+            for subcls in subclass.get_subclasses():
+                yield subcls
+            yield subclass
 
     def __eq__(self, other):
         '''
@@ -96,7 +109,7 @@ class DucoNode(object):
 class DucoBox(DucoNode):
     '''Class for a Duco box device'''
 
-    TYPE = 'BOX'
+    KIND = 'BOX'
 
     def __init__(self, number, address):
         '''
@@ -118,7 +131,7 @@ class DucoBoxSensor(DucoNode):
 class DucoBoxHumiditySensor(DucoBoxSensor):
     '''Class for a humidity sensor inside the Duco box device'''
 
-    TYPE = 'UCRH'
+    KIND = 'UCRH'
 
     def __init__(self, number, address):
         '''
@@ -128,13 +141,13 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        super(DucoBoxSensor, self).__init__(number, address)
+        super(DucoBoxHumiditySensor, self).__init__(number, address)
 
 
 class DucoBoxCO2Sensor(DucoBoxSensor):
     '''Class for a CO2 sensor inside the Duco box device'''
 
-    TYPE = 'UCCO2'
+    KIND = 'UCCO2'
 
     def __init__(self, number, address):
         '''
@@ -144,13 +157,13 @@ class DucoBoxCO2Sensor(DucoBoxSensor):
             number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        super(DucoBoxSensor, self).__init__(number, address)
+        super(DucoBoxCO2Sensor, self).__init__(number, address)
 
 
 class DucoUserControl(DucoNode):
     '''Class for a user control device inside the Duco box network'''
 
-    TYPE = 'UCBAT'
+    KIND = 'UCBAT'
 
     def __init__(self, number, address):
         '''
@@ -160,14 +173,14 @@ class DucoUserControl(DucoNode):
             number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        super(DucoNode, self).__init__(number, address)
+        super(DucoUserControl, self).__init__(number, address)
 
 
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
     LIST_NETWORK_COMMAND = 'network'
-    MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+).*$'
+    MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''
@@ -246,9 +259,37 @@ class DucoInterface(object):
         logging.debug('Serial reply:\n{reply}'.format(reply=reply))
         return reply
 
-    def get_nodes(self):
+    def add_node(self, kind, number, address):
+        '''
+        Add a node to the network
+
+        The function finds the right sub-class of DucoNode (based on given kind), instantiates an object
+        of that sub-class, and adds it to the list of nodes.
+
+        Args:
+            kind (str): the kind of the DucoNode to be added
+            number (str): the number of the node within the network
+            address (str): the address of the node within the network
+
+        Returns:
+            The node object added
+        '''
+        nodeclass = DucoNode
+        for cls in DucoNode.get_subclasses():
+            if cls.KIND == kind:
+                nodeclass = cls
+        if nodeclass == DucoNode:
+            logging.warning('Unknown node kind: {kind}, assuming default'.format(kind=kind))
+        node = nodeclass(number, address)
+        self.nodes.append(node)
+        logging.info('Added node: {node}'.format(node=node))
+        return node
+
+    def find_nodes(self):
         '''
         Get nodes in the DucoInterface's network
+
+        Searches the network of the DucoBox though the interface, and stores objects for all of the found nodes.
         '''
         if self.is_online():
             logging.info('Searching network...')
@@ -256,9 +297,21 @@ class DucoInterface(object):
             for line in reply.split('\n'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
-                    node = DucoNode(match.group('node'), match.group('address'))
-                    self.nodes.append(node)
-        return self.nodes
+                    self.add_node(match.group('kind'), match.group('node'), match.group('address'))
+
+    def get_node(self, address):
+        '''
+        Get a node with given address
+
+        Args:
+            address (str): Address for the node to be found
+        Returns:
+            Node object with matching address
+        '''
+        for node in self.nodes:
+            if node.address == address:
+                return node
+        return None
 
 
 def ducobox_wrapper(args):
@@ -288,7 +341,7 @@ def ducobox_wrapper(args):
 
     box = DucoInterface(port=args.port, cfgfile=args.network)
 
-    box.get_nodes()
+    box.find_nodes()
 
     box.load()
 

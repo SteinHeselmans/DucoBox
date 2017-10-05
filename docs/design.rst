@@ -23,18 +23,20 @@ Class diagram
 
     class DucoInterface {
         +__init__(port, cfgfile)
-        +get_nodes()
+        +DucoNode add_node(kind, number, address)
+        +find_nodes()
         +load()
         +store()
     }
 
     class DucoNode {
-        +{abstract}{static} TYPE = None
+        +{abstract}{static} KIND = None
         +__init__(number, address)
+        +{static}get_subclasses()
     }
 
     class DucoBox {
-        +{static} TYPE = 'BOX'
+        +{static} KIND = 'BOX'
         +__init__(number, address)
     }
 
@@ -42,17 +44,17 @@ Class diagram
     }
 
     class DucoBoxHumiditySensor {
-        +{static} TYPE = 'UCRH'
+        +{static} KIND = 'UCRH'
         +__init__(number, address)
     }
 
     class DucoBoxCO2Sensor {
-        +{static} TYPE = 'UCCO2'
+        +{static} KIND = 'UCCO2'
         +__init__(number, address)
     }
 
     class DucoUserControl {
-        +{static} TYPE = 'UCBAT'
+        +{static} KIND = 'UCBAT'
         +__init__(number, address)
     }
 
