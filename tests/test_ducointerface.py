@@ -42,6 +42,11 @@ class TestDucoInterface(TestCase):
         self.assertEqual(node.number, '34')
         self.assertEqual(node.address, '132')
 
+        node = itf.get_node('142')
+        self.assertIsInstance(node, dut.DucoBoxCO2Sensor)
+        self.assertEqual(node.number, '44')
+        self.assertEqual(node.address, '142')
+
         node = itf.get_node('999')
         self.assertIsInstance(node, dut.DucoNode)
         self.assertEqual(node.number, '99')
