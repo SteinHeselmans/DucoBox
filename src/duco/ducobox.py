@@ -327,7 +327,6 @@ class DucoInterface(object):
                     temperature = float(match.group('temperature')) / 10.0
                     logging.info('Sample temperature: {temperature} degC'.format(temperature=temperature))
 
-
     def get_node(self, address):
         '''
         Get a node with given address
