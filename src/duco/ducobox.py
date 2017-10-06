@@ -198,6 +198,7 @@ class DucoInterface(object):
         self.nodes = []
         self._config_serial(port)
         self.cfgfile = cfgfile
+        self._live = False
 
     def is_online(self):
         '''
@@ -206,7 +207,7 @@ class DucoInterface(object):
         Returns:
             True if DucoInterface is connected to given serial port, False otherwise
         '''
-        if self._serial:
+        if self._live:
             return True
         return False
 
@@ -292,13 +293,14 @@ class DucoInterface(object):
 
         Searches the network of the DucoBox though the interface, and stores objects for all of the found nodes.
         '''
-        if self.is_online():
+        if self._serial:
             logging.info('Searching network...')
             reply = self._execute(self.LIST_NETWORK_COMMAND)
             for line in reply.split('\r'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
                     self.add_node(match.group('kind'), match.group('node'), match.group('address'))
+                    self._live = True
 
     def get_node(self, address):
         '''
