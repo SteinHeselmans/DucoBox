@@ -9,12 +9,14 @@ except ImportError:
 import sys
 import re
 import logging
+import time
 from setuptools_scm import get_version
 from serial import Serial, SerialException
 
 __version__ = get_version()
 
 DEFAULT_LOGLEVEL = 'info'
+SERIAL_CHAR_INTERVAL = 0.1
 
 
 def set_logging_level(loglevel):
@@ -258,9 +260,11 @@ class DucoInterface(object):
         '''
         logging.debug('Serial command:\n{command}'.format(command=command))
         self._serial.write('\r')
+        time.sleep(SERIAL_CHAR_INTERVAL)
         self._serial.readline()
         cmd = command.encode('utf-8')
         for c in cmd:
+            time.sleep(SERIAL_CHAR_INTERVAL)
             self._serial.write(c)
         reply = str(self._serial.readline())
         logging.debug('Serial reply:\n{reply}'.format(reply=reply.replace('\r', '\n')))
