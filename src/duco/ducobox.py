@@ -186,6 +186,9 @@ class DucoInterface(object):
 
     LIST_NETWORK_COMMAND = 'network\r'
     MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
+    SENSOR_INFO_COMMAND = 'sensorinfo\r'
+    MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
+    MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''
@@ -310,6 +313,21 @@ class DucoInterface(object):
                     self.add_node(match.group('kind'), match.group('node'), match.group('address'))
                     self._live = True
 
+    def sample(self):
+        if self.is_online():
+            logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
+            reply = self._execute(self.SENSOR_INFO_COMMAND)
+            for line in reply.split('\r'):
+                match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
+                if match:
+                    humidity = float(match.group('humidity')) / 100.0
+                    logging.info('Sample humidity: {humidity} %'.format(humidity=humidity))
+                match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
+                if match:
+                    temperature = float(match.group('temperature')) / 10.0
+                    logging.info('Sample temperature: {temperature} degC'.format(temperature=temperature))
+
+
     def get_node(self, address):
         '''
         Get a node with given address
@@ -358,6 +376,10 @@ def ducobox_wrapper(args):
 
     if box.is_online():
         box.store()
+
+    while(True):
+        box.sample()
+        time.sleep(300)
 
     return 0
 
