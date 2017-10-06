@@ -257,7 +257,11 @@ class DucoInterface(object):
             str: Received answer
         '''
         logging.debug('Serial command:\n{command}'.format(command=command))
-        self._serial.write(command.encode('utf-8'))
+        self._serial.write('\r')
+        self._serial.readline()
+        cmd = command.encode('utf-8')
+        for c in cmd:
+            self._serial.write(c)
         reply = str(self._serial.readline())
         logging.debug('Serial reply:\n{reply}'.format(reply=reply.replace('\r', '\n')))
         return reply
