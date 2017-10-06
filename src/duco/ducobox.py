@@ -43,7 +43,7 @@ class DucoNode(object):
             number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        logging.info('Found node {node} at {address}'.format(node=number, address=address))
+        logging.info('Found node {node} at {address} ({classname})'.format(node=number, address=address, classname=self.__class__.__name__))
         self.number = str(number)
         self.address = str(address)
         self.name = 'NoName'
@@ -77,9 +77,10 @@ class DucoNode(object):
         Args:
             cfgparser (ConfigParser): Configuration object to store the Node to
         '''
-        section = 'Node{address}'.format(address=self.address)
+        section = 'Node{number}'.format(number=self.number)
         cfgparser.add_section(section)
         cfgparser.set(section, 'name', self.name)
+        cfgparser.set(section, 'number', self.number)
         cfgparser.set(section, 'address', self.address)
 
     def _load(self, cfgparser):
@@ -89,12 +90,14 @@ class DucoNode(object):
         Args:
             cfgparser (ConfigParser): Configuration object to load the Node from
         '''
-        section = 'Node{address}'.format(address=self.address)
+        section = 'Node{number}'.format(number=self.number)
         try:
             self.name = cfgparser.get(section, 'name')
-            # self.address = cfgparser.get(section, 'address')
+            self.number = cfgparser.get(section, 'number')
+            self.address = cfgparser.get(section, 'address')
+            logging.info('Node {number} ({name}) found in network configuration file at address {address}'.format(number=self.number, name=self.name, address=self.address))
         except NoSectionError:
-            logging.debug('Node {address} not found in network configuration file, adding...'.format(address=self.address))
+            logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
     def __str__(self):
         '''
@@ -179,7 +182,7 @@ class DucoUserControl(DucoNode):
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
-    LIST_NETWORK_COMMAND = 'network'
+    LIST_NETWORK_COMMAND = 'network\r'
     MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
@@ -211,9 +214,8 @@ class DucoInterface(object):
         '''
         Store to network configuration file
         '''
-        logging.debug('Storing network configuration...')
+        logging.info('Storing network configuration...')
         cfgparser = ConfigParser()
-        super(DucoInterface, self)._store(cfgparser)
         for node in self.nodes:
             node._store(cfgparser)
         with open(self.cfgfile, 'w') as cfgfile:
@@ -224,7 +226,7 @@ class DucoInterface(object):
         '''
         Load from network configuration file
         '''
-        logging.debug('Loading network configuration...')
+        logging.info('Loading network configuration...')
         cfgparser = ConfigParser()
         cfgparser.read(self.cfgfile)
         for node in self.nodes:
@@ -242,7 +244,7 @@ class DucoInterface(object):
             self._serial = Serial(port=port, baudrate=115200, timeout=1)
         except SerialException:
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
-        logging.debug('Opened serial port {port}'.format(port=port))
+        logging.info('Opened serial port {port}'.format(port=port))
 
     def _execute(self, command):
         '''
@@ -256,7 +258,7 @@ class DucoInterface(object):
         logging.debug('Serial command:\n{command}'.format(command=command))
         self._serial.write(command.encode('utf-8'))
         reply = str(self._serial.readline())
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+        logging.debug('Serial reply:\n{reply}'.format(reply=reply.replace('\r', '\n')))
         return reply
 
     def add_node(self, kind, number, address):
@@ -282,7 +284,6 @@ class DucoInterface(object):
             logging.warning('Unknown node kind: {kind}, assuming default'.format(kind=kind))
         node = nodeclass(number, address)
         self.nodes.append(node)
-        logging.info('Added node: {node}'.format(node=node))
         return node
 
     def find_nodes(self):
@@ -294,7 +295,7 @@ class DucoInterface(object):
         if self.is_online():
             logging.info('Searching network...')
             reply = self._execute(self.LIST_NETWORK_COMMAND)
-            for line in reply.split('\n'):
+            for line in reply.split('\r'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
                     self.add_node(match.group('kind'), match.group('node'), match.group('address'))
