@@ -43,10 +43,10 @@ class DucoNode(object):
             number (str): Number of the node in the network
             address (str): Address of the node within the network
         '''
-        logging.info('Found node {node} at {address} ({classname})'.format(node=number, address=address, classname=self.__class__.__name__))
         self.number = str(number)
         self.address = str(address)
-        self.name = 'NoName'
+        self.name = 'My {classname}'.format(classname=self.__class__.__name__)
+        logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
     @classmethod
     def get_subclasses(cls):
