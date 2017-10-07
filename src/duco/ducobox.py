@@ -137,7 +137,7 @@ class DucoBox(DucoNode):
 
     def sample(self, interface):
         '''
-        Take a sample from the DucoBoxHumiditySensor
+        Take a sample from the DucoBox
 
         Args:
             interface (DucoInterface): Interface to use to the duco network
@@ -186,7 +186,7 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             if match:
                 humidity = float(match.group('humidity')) / 100.0
                 logging.info('Sample humidity: {humidity} %'.format(humidity=humidity))
-                self.humidiy = humidity
+                self.humidity = humidity
             match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
             if match:
                 temperature = float(match.group('temperature')) / 10.0

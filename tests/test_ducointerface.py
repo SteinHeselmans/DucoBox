@@ -17,7 +17,7 @@ class TestDucoInterface(TestCase):
         return c.encode('utf-8')
 
     @patch('duco.ducobox.Serial', autospec=True)
-    def test_duco_interface(self, serial_mock):
+    def test_network_happy(self, serial_mock):
         serial_mock_object = MagicMock(spec=Serial)
         serial_mock.return_value = serial_mock_object
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)
