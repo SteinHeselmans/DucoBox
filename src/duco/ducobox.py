@@ -108,7 +108,7 @@ class DucoNode(object):
         Args:
             interface (DucoInterface): Interface to use to the duco network
         '''
-        logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
+        pass
 
     def __str__(self):
         '''
@@ -142,7 +142,7 @@ class DucoBox(DucoNode):
         Args:
             interface (DucoInterface): Interface to use to the duco network
         '''
-        super(DucoBoxHumiditySensor, self).sample(interface)
+        super(DucoBox, self).sample(interface)
 
 
 class DucoBoxSensor(DucoNode):
@@ -180,7 +180,7 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             interface (DucoInterface): Interface to use to the duco network
         '''
         super(DucoBoxHumiditySensor, self).sample(interface)
-        reply = self._execute(self.SENSOR_INFO_COMMAND)
+        reply = interface._execute(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
         for line in reply.split('\r'):
             match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
             if match:
@@ -358,16 +358,8 @@ class DucoInterface(object):
     def sample(self):
         if self.is_online():
             logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
-            reply = self._execute(self.SENSOR_INFO_COMMAND)
-            for line in reply.split('\r'):
-                match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
-                if match:
-                    humidity = float(match.group('humidity')) / 100.0
-                    logging.info('Sample humidity: {humidity} %'.format(humidity=humidity))
-                match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
-                if match:
-                    temperature = float(match.group('temperature')) / 10.0
-                    logging.info('Sample temperature: {temperature} degC'.format(temperature=temperature))
+            for node in self.nodes:
+                node.sample(self)
 
     def get_node(self, address):
         '''
