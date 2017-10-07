@@ -1,0 +1,2 @@
+  FanSpeed: Actual 1438 [rpm] - Filtered 1449 [rpm]
+  Done

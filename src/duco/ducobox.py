@@ -125,6 +125,9 @@ class DucoBox(DucoNode):
 
     KIND = 'BOX'
 
+    FAN_SPEED_COMMAND = 'fanspeed\r'
+    MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
+
     def __init__(self, number, address):
         '''
         Initializer for a Duco box device
@@ -134,6 +137,7 @@ class DucoBox(DucoNode):
             address (str): Address of the node within the network
         '''
         super(DucoBox, self).__init__(number, address)
+        self.fanspeed = None
 
     def sample(self, interface):
         '''
@@ -143,6 +147,14 @@ class DucoBox(DucoNode):
             interface (DucoInterface): Interface to use to the duco network
         '''
         super(DucoBox, self).sample(interface)
+        reply = interface._execute(DucoBox.FAN_SPEED_COMMAND)
+        for line in reply.split('\r'):
+            match = re.compile(self.MATCH_FAN_SPEED).search(line)
+            if match:
+                actual = int(match.group('actual'))
+                filtered = int(match.group('filtered'))
+                logging.info('Sample fan speed: {filtered} ({actual})%'.format(filtered=filtered, actual=actual))
+                self.fanspeed = filtered
 
 
 class DucoBoxSensor(DucoNode):
