@@ -153,7 +153,7 @@ class DucoBox(DucoNode):
             if match:
                 actual = int(match.group('actual'))
                 filtered = int(match.group('filtered'))
-                logging.info('Sample fan speed: {filtered} ({actual})%'.format(filtered=filtered, actual=actual))
+                logging.info('- fan speed: {filtered} rpm (act: {actual} rpm)'.format(filtered=filtered, actual=actual))
                 self.fanspeed = filtered
 
 
@@ -197,12 +197,12 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
             if match:
                 humidity = float(match.group('humidity')) / 100.0
-                logging.info('Sample humidity: {humidity} %'.format(humidity=humidity))
+                logging.info('- humidity: {humidity} %'.format(humidity=humidity))
                 self.humidity = humidity
             match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
             if match:
                 temperature = float(match.group('temperature')) / 10.0
-                logging.info('Sample temperature: {temperature} degC'.format(temperature=temperature))
+                logging.info('- temperature: {temperature} degC'.format(temperature=temperature))
                 self.temperature = temperature
 
 
