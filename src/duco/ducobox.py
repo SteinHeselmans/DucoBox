@@ -101,6 +101,15 @@ class DucoNode(object):
         except NoSectionError:
             logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
+    def sample(self, interface):
+        '''
+        Take a sample from the DucoNode
+
+        Args:
+            interface (DucoInterface): Interface to use to the duco network
+        '''
+        logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
+
     def __str__(self):
         '''
         Convert duco node object to string
@@ -126,9 +135,20 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).__init__(number, address)
 
+    def sample(self, interface):
+        '''
+        Take a sample from the DucoBoxHumiditySensor
+
+        Args:
+            interface (DucoInterface): Interface to use to the duco network
+        '''
+        super(DucoBoxHumiditySensor, self).sample(interface)
+
 
 class DucoBoxSensor(DucoNode):
     '''Class for a sensor inside the Duco box device'''
+
+    SENSOR_INFO_COMMAND = 'sensorinfo\r'
 
     pass
 
@@ -137,6 +157,8 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
     '''Class for a humidity sensor inside the Duco box device'''
 
     KIND = 'UCRH'
+    MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
+    MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
 
     def __init__(self, number, address):
         '''
@@ -147,6 +169,29 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             address (str): Address of the node within the network
         '''
         super(DucoBoxHumiditySensor, self).__init__(number, address)
+        self.humidity = None
+        self.temperature = None
+
+    def sample(self, interface):
+        '''
+        Take a sample from the DucoBoxHumiditySensor
+
+        Args:
+            interface (DucoInterface): Interface to use to the duco network
+        '''
+        super(DucoBoxHumiditySensor, self).sample(interface)
+        reply = self._execute(self.SENSOR_INFO_COMMAND)
+        for line in reply.split('\r'):
+            match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
+            if match:
+                humidity = float(match.group('humidity')) / 100.0
+                logging.info('Sample humidity: {humidity} %'.format(humidity=humidity))
+                self.humidiy = humidity
+            match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
+            if match:
+                temperature = float(match.group('temperature')) / 10.0
+                logging.info('Sample temperature: {temperature} degC'.format(temperature=temperature))
+                self.temperature = temperature
 
 
 class DucoBoxCO2Sensor(DucoBoxSensor):
@@ -186,9 +231,6 @@ class DucoInterface(object):
 
     LIST_NETWORK_COMMAND = 'network\r'
     MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
-    SENSOR_INFO_COMMAND = 'sensorinfo\r'
-    MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
-    MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''

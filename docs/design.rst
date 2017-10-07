@@ -27,11 +27,13 @@ Class diagram
         +find_nodes()
         +load()
         +store()
+        +sample()
     }
 
     class DucoNode {
         +{abstract}{static} KIND = None
         +__init__(number, address)
+        +sample(interface)
         +{static}get_subclasses()
     }
 
