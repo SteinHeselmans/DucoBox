@@ -58,19 +58,19 @@ After installation, the python module is available
 
 - as executable, to launch from terminal:
 
-:: code-block:: bash
+.. code-block:: bash
 
 	ducobox
 
 - as python module, to launch from terminal:
 
-:: code-block:: bash
+.. code-block:: bash
 
 	python -m duco.ducobox
 
 - as python module, to import in your script:
 
-:: code-block:: python
+.. code-block:: python
 
 	import duco.ducobox as duco
 
@@ -83,7 +83,7 @@ Allowing non-root user to access serial port (Ubuntu, Linux)
 
 1. Add user to dialout group:
 
-:: code-block:: bash
+.. code-block:: bash
 
     adduser <username> dialout
 
@@ -91,13 +91,13 @@ Allowing non-root user to access serial port (Ubuntu, Linux)
 
 Content for /etc/udev/rules.d/50-ttyusb.rules
 
-:: code-block:: bash
+.. code-block:: bash
 
     SUBSYSTEM=="tty", KERNEL=="ttyUSB0", GROUP="dialout", MODE="0660"
 
 3. Reboot
 
-:: code-block:: bash
+.. code-block:: bash
 
     reboot 
 
