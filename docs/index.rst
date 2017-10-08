@@ -6,7 +6,6 @@ Contents
    :maxdepth: 2
 
    readme
-   installation
    contributing
    authors
    design

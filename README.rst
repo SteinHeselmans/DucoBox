@@ -31,12 +31,12 @@
 DucoBox
 =======
 
-Script to monitor a DucoBox ventilation system.
+Script to monitor a Duco ventilation system.
 
 
-============
+------------
 Installation
-============
+------------
 
 Every release is uploaded to pip so it can be installed simply by using pip.
 
@@ -50,20 +50,40 @@ Every release is uploaded to pip so it can be installed simply by using pip.
 
 You can find more details in `Installation guide <docs/installation.rst>`_
 
-=====
+-----
 Usage
-=====
+-----
 
-=====
+After installation, the python module is available 
+
+- as executable, to launch from terminal:
+
+:: code-block:: bash
+
+	ducobox
+
+- as python module, to launch from terminal:
+
+:: code-block:: bash
+
+	python -m duco.ducobox
+
+- as python module, to import in your script:
+
+:: code-block:: python
+
+	import duco.ducobox as duco
+
+-----
 Hints
-=====
+-----
 
 Allowing non-root user to access serial port (Ubuntu, Linux)
 ============================================================
 
 1. Add user to dialout group:
 
-::
+:: code-block:: bash
 
     adduser <username> dialout
 
@@ -71,28 +91,40 @@ Allowing non-root user to access serial port (Ubuntu, Linux)
 
 Content for /etc/udev/rules.d/50-ttyusb.rules
 
-::
+:: code-block:: bash
 
     SUBSYSTEM=="tty", KERNEL=="ttyUSB0", GROUP="dialout", MODE="0660"
 
 3. Reboot
 
-::
+:: code-block:: bash
 
     reboot 
 
-=======================
+-----------
+Limitations
+-----------
+
+The main contributor to this project has a limited Duco ventilation system, with not too much devices:
+
+- DucoBox Silent
+- Humidity box sensor
+- Remote control on battery
+
+The python module was not tested on other devices, allthough some effort was done in order to support them.
+
+-----------------------
 Issues and new Features
-=======================
+-----------------------
 
 In case you have any problems with usage of the plugin, please open an issue
 on GitHub. Provide as many valid information as possible, as this will help us
 to resolve Issues faster. We would also like to hear your suggestions about new
 features which would help your Continuous Integration run better.
 
-==========
+----------
 Contribute
-==========
+----------
 
 There is a Contribution guide available if you would like to get involved in
 development of the plugin. We encourage anyone to contribute to our repository.
