@@ -118,7 +118,7 @@ class DucoNode(object):
         Returns:
             str: String representation of the object
         '''
-        return self.name + ' @ ' + self.address
+        return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
 
 class DucoBox(DucoNode):
