@@ -23,3 +23,8 @@ class TestIntegration(TestCase):
     def test_invalid_loglevel(self):
         with self.assertRaises(ValueError):
             ducobox_wrapper(['--port', '/dev/null', '--loglevel', 'invalid'])
+
+    def test_invalid_interval(self):
+        with self.assertRaises(SystemExit) as ex:
+            ducobox_wrapper(['--port', '/dev/null', '--interval', 'invalid'])
+        self.assertEqual(2, ex.exception.code)

@@ -16,6 +16,7 @@ from serial import Serial, SerialException
 __version__ = get_version()
 
 DEFAULT_LOGLEVEL = 'info'
+DEFAULT_INTERVAL = 300
 SERIAL_CHAR_INTERVAL = 0.1
 
 
@@ -400,7 +401,10 @@ def ducobox_wrapper(args):
     '''
     parser = argparse.ArgumentParser(prog='ducobox')
     parser.add_argument('--version', action='version', version=__version__)
-    parser.add_argument('-l', '--loglevel', dest='loglevel', default=DEFAULT_LOGLEVEL,
+    parser.add_argument('-l', '--loglevel', type=str, dest='loglevel', default=DEFAULT_LOGLEVEL,
+                        action='store', required=False,
+                        help='Interval in between samples [seconds]')
+    parser.add_argument('-i', '--interval', type=float, dest='interval', default=DEFAULT_INTERVAL,
                         action='store', required=False,
                         help='Level for logging (strings from logging python package)')
     parser.add_argument('-p', '--port', type=str, dest='port',
@@ -424,7 +428,7 @@ def ducobox_wrapper(args):
 
     while(True):
         box.sample()
-        time.sleep(300)
+        time.sleep(args.interval)
 
     return 0
 
