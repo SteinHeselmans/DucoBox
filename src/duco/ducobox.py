@@ -38,18 +38,29 @@ class DucoNode(object):
 
     KIND = None
 
-    def __init__(self, number, address):
+    def __init__(self, number, address, interface=None):
         '''
         Initializer for a Duco Node
 
         Args:
             number (str): Number of the node in the network
             address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
         '''
         self.number = str(number)
         self.address = str(address)
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
+        self.bind(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
+
+    def bind(self, interface):
+        '''
+        Bind the DucoNode to an interface
+
+        Args:
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        self.interface = interface
 
     @classmethod
     def get_subclasses(cls):
@@ -102,12 +113,9 @@ class DucoNode(object):
         except NoSectionError:
             logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
-    def sample(self, interface):
+    def sample(self):
         '''
         Take a sample from the DucoNode
-
-        Args:
-            interface (DucoInterface): Interface to use to the duco network
         '''
         pass
 
@@ -129,26 +137,24 @@ class DucoBox(DucoNode):
     FAN_SPEED_COMMAND = 'fanspeed\r'
     MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
 
-    def __init__(self, number, address):
+    def __init__(self, number, address, interface=None):
         '''
         Initializer for a Duco box device
 
         Args:
             number (str): Number of the node in the network
             address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoBox, self).__init__(number, address)
+        super(DucoBox, self).__init__(number, address, interface)
         self.fanspeed = None
 
-    def sample(self, interface):
+    def sample(self):
         '''
         Take a sample from the DucoBox
-
-        Args:
-            interface (DucoInterface): Interface to use to the duco network
         '''
-        super(DucoBox, self).sample(interface)
-        reply = interface._execute(DucoBox.FAN_SPEED_COMMAND)
+        super(DucoBox, self).sample()
+        reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         for line in reply.split('\r'):
             match = re.compile(self.MATCH_FAN_SPEED).search(line)
             if match:
@@ -173,27 +179,25 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
     MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
     MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
 
-    def __init__(self, number, address):
+    def __init__(self, number, address, interface=None):
         '''
         Initializer for a humidity sensor inside the Duco box
 
         Args:
             number (str): Number of the node in the network
             address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoBoxHumiditySensor, self).__init__(number, address)
+        super(DucoBoxHumiditySensor, self).__init__(number, address, interface)
         self.humidity = None
         self.temperature = None
 
-    def sample(self, interface):
+    def sample(self):
         '''
         Take a sample from the DucoBoxHumiditySensor
-
-        Args:
-            interface (DucoInterface): Interface to use to the duco network
         '''
-        super(DucoBoxHumiditySensor, self).sample(interface)
-        reply = interface._execute(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
+        super(DucoBoxHumiditySensor, self).sample()
+        reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
         for line in reply.split('\r'):
             match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
             if match:
@@ -212,15 +216,16 @@ class DucoBoxCO2Sensor(DucoBoxSensor):
 
     KIND = 'UCCO2'
 
-    def __init__(self, number, address):
+    def __init__(self, number, address, interface=None):
         '''
         Initializer for a CO2 sensor inside the Duco box
 
         Args:
             number (str): Number of the node in the network
             address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoBoxCO2Sensor, self).__init__(number, address)
+        super(DucoBoxCO2Sensor, self).__init__(number, address, interface)
 
 
 class DucoUserControl(DucoNode):
@@ -228,15 +233,16 @@ class DucoUserControl(DucoNode):
 
     KIND = 'UCBAT'
 
-    def __init__(self, number, address):
+    def __init__(self, number, address, interface=None):
         '''
         Initializer for a user control device inside the Duco network
 
         Args:
             number (str): Number of the node in the network
             address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoUserControl, self).__init__(number, address)
+        super(DucoUserControl, self).__init__(number, address, interface)
 
 
 class DucoInterface(object):
@@ -256,7 +262,7 @@ class DucoInterface(object):
         logging.info('Welcome to Duco Interface')
         self._serial = None
         self.nodes = []
-        self._config_serial(port)
+        self.bind(port)
         self.cfgfile = cfgfile
         self._live = False
 
@@ -294,9 +300,9 @@ class DucoInterface(object):
             node._load(cfgparser)
         logging.debug('Load finished')
 
-    def _config_serial(self, port):
+    def bind(self, port):
         '''
-        Configure and open serial port at 115200 in 8N1 mode
+        Bind serial port: configure and open serial port at 115200 in 8N1 mode
 
         Args:
             port (str): Name of the serial port
@@ -307,7 +313,7 @@ class DucoInterface(object):
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
         logging.info('Opened serial port {port}'.format(port=port))
 
-    def _execute(self, command):
+    def execute_command(self, command):
         '''
         Execute a command: send a command, and return the reply
 
@@ -349,7 +355,7 @@ class DucoInterface(object):
                 nodeclass = cls
         if nodeclass == DucoNode:
             logging.warning('Unknown node kind: {kind}, assuming default'.format(kind=kind))
-        node = nodeclass(number, address)
+        node = nodeclass(number, address, self)
         self.nodes.append(node)
         return node
 
@@ -361,7 +367,7 @@ class DucoInterface(object):
         '''
         if self._serial:
             logging.info('Searching network...')
-            reply = self._execute(self.LIST_NETWORK_COMMAND)
+            reply = self.execute_command(self.LIST_NETWORK_COMMAND)
             for line in reply.split('\r'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
@@ -372,7 +378,7 @@ class DucoInterface(object):
         if self.is_online():
             logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
             for node in self.nodes:
-                node.sample(self)
+                node.sample()
 
     def get_node(self, address):
         '''

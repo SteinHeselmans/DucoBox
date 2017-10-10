@@ -14,7 +14,8 @@ Class diagram
 
     @startuml
 
-    DucoInterface o-- DucoNode
+    DucoInterface "1" o-- "N" DucoNode
+    DucoNode "1" o-- "1" DucoInterface
     DucoNode <|-- DucoBox
     DucoNode <|-- DucoBoxSensor
     DucoBoxSensor <|-- DucoBoxHumiditySensor
@@ -23,6 +24,8 @@ Class diagram
 
     class DucoInterface {
         +__init__(port, cfgfile)
+        +bind(port)
+        +execute_command(cmd)
         +DucoNode add_node(kind, number, address)
         +find_nodes()
         +load()
@@ -33,7 +36,8 @@ Class diagram
     class DucoNode {
         +{abstract}{static} KIND = None
         +__init__(number, address)
-        +sample(interface)
+        +bind(interface)
+        +sample()
         +{static}get_subclasses()
     }
 

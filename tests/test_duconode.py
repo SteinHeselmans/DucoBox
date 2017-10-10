@@ -80,7 +80,7 @@ class TestDucoNode(TestCase):
 
     def test_sample(self):
         node = dut.DucoNode(111, 222)
-        node.sample(None)
+        node.sample()
 
     def test_stringify(self):
         node = dut.DucoNode(111, 222)
