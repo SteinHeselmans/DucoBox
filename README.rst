@@ -48,25 +48,24 @@ Every release is uploaded to pip so it can be installed simply by using pip.
     # Python3
     pip3 install duco.ducobox
 
-You can find more details in `Installation guide <docs/installation.rst>`_
 
 -----
 Usage
 -----
 
-After installation, the python module is available 
+After installation, the python module is available
 
 - as executable, to launch from terminal:
 
 .. code-block:: bash
 
-	ducobox
+	ducobox --help
 
 - as python module, to launch from terminal:
 
 .. code-block:: bash
 
-	python -m duco.ducobox
+	python -m duco.ducobox --help
 
 - as python module, to import in your script:
 
@@ -99,7 +98,7 @@ Content for /etc/udev/rules.d/50-ttyusb.rules
 
 .. code-block:: bash
 
-    reboot 
+    reboot
 
 -----------
 Limitations
