@@ -73,6 +73,21 @@ After installation, the python module is available
 
 	import duco.ducobox as duco
 
+--------------------
+Stored configuration
+--------------------
+
+The network configuration of your setup is stored in an ini-file. If the network configuration file is not found,
+it is created.
+
+The script first tries to find all of the nodes in the network, by executing the *network* command. It creates
+objects for all of the found nodes. If nodes are found, the network configuration is saved to the provided
+network configuration file.
+
+The network configuration file gives an overview of all the nodes with their specific parameters. The *name* of
+every node can be adapted by the user, in order to easily recognize the nodes. The rest of the fields should not
+be adapted outside the script.
+
 -----
 Hints
 -----
