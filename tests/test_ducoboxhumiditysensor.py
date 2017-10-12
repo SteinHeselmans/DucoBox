@@ -16,9 +16,9 @@ class TestDucoBoxHumiditySensor(TestCase):
         sensor.bind(itf_mock_object)
 
         with open('tests/cmd_sensorinfo.txt') as cmdfile:
-            itf_mock_object.execute_command.return_value = cmdfile.read().replace('\n', '\r')
+            itf_mock_object.execute_command.return_value = cmdfile.read()
         sensor.sample()
-        itf_mock_object.execute_command.assert_called_once_with('sensorinfo\r')
+        itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
         self.assertEqual(sensor.humidity, 68.37)
         self.assertEqual(sensor.temperature, 18.9)
