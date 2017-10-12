@@ -190,19 +190,38 @@ class DucoBox(DucoNode):
                     self.device_id = match.group('deviceid')
                     logging.info('DucoBox device ID: {id}'.format(id=self.device_id))
 
+    def _parse_reply(self, reply, msg, unit, regex, group):
+        '''
+        Parse the reply on a command
+
+        Args:
+            reply (str): The reply from the duco interface on your command
+            msg (str): Message of the information to be printed
+            unit (str): Unit of the sampled information
+            regex (str): Regular expression to get the data from the reply
+            group (str): Named group within the regex to get the data from the reply
+
+        Returns:
+            String with parsed value from reply, if regex matched. None otherwise.
+        '''
+        for line in reply.split('\n'):
+            match = re.compile(regex).search(line)
+            if match:
+                value = match.group(group)
+                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+                return value
+        return None
+
     def sample(self):
         '''
         Take a sample from the DucoBox
         '''
         super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        for line in reply.split('\n'):
-            match = re.compile(self.MATCH_FAN_SPEED).search(line)
-            if match:
-                actual = int(match.group('actual'))
-                filtered = int(match.group('filtered'))
-                logging.info('- fan speed: {filtered} rpm (act: {actual} rpm)'.format(filtered=filtered, actual=actual))
-                self.fanspeed = filtered
+        speed = self._parse_reply(reply, 'fan speed (filtered)', 'rpm', self.MATCH_FAN_SPEED, 'filtered')
+        self.fanspeed = int(speed)
+        speed = self._parse_reply(reply, 'fan speed (actual)', 'rpm', self.MATCH_FAN_SPEED, 'actual')
+        self.fanspeed_act = int(speed)
 
 
 class DucoBoxSensor(DucoNode):
