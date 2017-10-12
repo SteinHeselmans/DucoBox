@@ -16,8 +16,8 @@ class TestDucoBox(TestCase):
         box.bind(itf_mock_object)
 
         with open('tests/cmd_fanspeed.txt') as cmdfile:
-            itf_mock_object.execute_command.return_value = cmdfile.read().replace('\n', '\r')
+            itf_mock_object.execute_command.return_value = cmdfile.read()
         box.sample()
-        itf_mock_object.execute_command.assert_called_once_with('fanspeed\r')
+        itf_mock_object.execute_command.assert_called_once_with('fanspeed')
 
         self.assertEqual(box.fanspeed, 1449)

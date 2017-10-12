@@ -134,7 +134,7 @@ class DucoBox(DucoNode):
 
     KIND = 'BOX'
 
-    FAN_SPEED_COMMAND = 'fanspeed\r'
+    FAN_SPEED_COMMAND = 'fanspeed'
     MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
 
     def __init__(self, number, address, interface=None):
@@ -155,7 +155,7 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        for line in reply.split('\r'):
+        for line in reply.split('\n'):
             match = re.compile(self.MATCH_FAN_SPEED).search(line)
             if match:
                 actual = int(match.group('actual'))
@@ -167,7 +167,7 @@ class DucoBox(DucoNode):
 class DucoBoxSensor(DucoNode):
     '''Class for a sensor inside the Duco box device'''
 
-    SENSOR_INFO_COMMAND = 'sensorinfo\r'
+    SENSOR_INFO_COMMAND = 'sensorinfo'
 
     pass
 
@@ -198,7 +198,8 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
         '''
         super(DucoBoxHumiditySensor, self).sample()
         reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
-        for line in reply.split('\r'):
+        for line in reply.split('\n'):
+            print('AA', line)
             match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
             if match:
                 humidity = float(match.group('humidity')) / 100.0
@@ -248,7 +249,7 @@ class DucoUserControl(DucoNode):
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
-    LIST_NETWORK_COMMAND = 'network\r'
+    LIST_NETWORK_COMMAND = 'network'
     MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
@@ -330,8 +331,10 @@ class DucoInterface(object):
         for c in cmd:
             time.sleep(SERIAL_CHAR_INTERVAL)
             self._serial.write(c)
-        reply = str(self._serial.readline())
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply.replace('\r', '\n')))
+        time.sleep(SERIAL_CHAR_INTERVAL)
+        self._serial.write('\r')
+        reply = str(self._serial.readline()).replace('\r', '\n')
+        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
         return reply
 
     def add_node(self, kind, number, address):
@@ -368,7 +371,7 @@ class DucoInterface(object):
         if self._serial:
             logging.info('Searching network...')
             reply = self.execute_command(self.LIST_NETWORK_COMMAND)
-            for line in reply.split('\r'):
+            for line in reply.split('\n'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
                     self.add_node(match.group('kind'), match.group('node'), match.group('address'))
