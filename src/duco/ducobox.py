@@ -136,6 +136,12 @@ class DucoBox(DucoNode):
 
     FAN_SPEED_COMMAND = 'fanspeed'
     MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
+    BOARD_INFO_COMMAND = 'boardinfo'
+    MATCH_BOOT_SOFTWARE = '^.*BootSW\s*:\s*(?P<bootsw>.+)\s*$'
+    MATCH_SERIAL = '^.*Serial\s*:\s*(?P<serial>.+)\s*$'
+    MATCH_BOARD_NAME = '^.*Board\s*:\s*(?P<board>.+)\s*$'
+    MATCH_BOARD_TYPE = '^.*Type\s*:\s*(?P<type>.+)\s*$'
+    MATCH_DEVICE_ID = '^.*DevId\s*:\s*(?P<deviceid>.+)\s*$'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -148,6 +154,41 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).__init__(number, address, interface)
         self.fanspeed = None
+        self.boot_software = None
+        self.serial = None
+        self.board_name = None
+        self.board_type = None
+        self.device_id = None
+        self._store_board_info()
+
+    def _store_board_info(self):
+        '''
+        Store board information
+        '''
+        if self.interface:
+            logging.info('Getting board information...')
+            reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
+            for line in reply.split('\n'):
+                match = re.compile(self.MATCH_BOOT_SOFTWARE).search(line)
+                if match:
+                    self.boot_software = match.group('bootsw')
+                    logging.info('DucoBox software: {software}'.format(software=self.boot_software))
+                match = re.compile(self.MATCH_SERIAL).search(line)
+                if match:
+                    self.serial = match.group('serial')
+                    logging.info('DucoBox serial: {serial}'.format(serial=self.serial))
+                match = re.compile(self.MATCH_BOARD_NAME).search(line)
+                if match:
+                    self.board_name = match.group('board')
+                    logging.info('DucoBox board name: {bname}'.format(bname=self.board_name))
+                match = re.compile(self.MATCH_BOARD_TYPE).search(line)
+                if match:
+                    self.board_type = match.group('type')
+                    logging.info('DucoBox board type: {btype}'.format(btype=self.board_type))
+                match = re.compile(self.MATCH_DEVICE_ID).search(line)
+                if match:
+                    self.device_id = match.group('deviceid')
+                    logging.info('DucoBox device ID: {id}'.format(id=self.device_id))
 
     def sample(self):
         '''
@@ -199,7 +240,6 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
         super(DucoBoxHumiditySensor, self).sample()
         reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
         for line in reply.split('\n'):
-            print('AA', line)
             match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
             if match:
                 humidity = float(match.group('humidity')) / 100.0
@@ -426,17 +466,17 @@ def ducobox_wrapper(args):
 
     set_logging_level(args.loglevel)
 
-    box = DucoInterface(port=args.port, cfgfile=args.network)
+    itf = DucoInterface(port=args.port, cfgfile=args.network)
 
-    box.find_nodes()
+    itf.find_nodes()
 
-    box.load()
+    itf.load()
 
-    if box.is_online():
-        box.store()
+    if itf.is_online():
+        itf.store()
 
     while(True):
-        box.sample()
+        itf.sample()
         time.sleep(args.interval)
 
     return 0
