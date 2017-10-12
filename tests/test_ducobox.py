@@ -21,3 +21,4 @@ class TestDucoBox(TestCase):
         itf_mock_object.execute_command.assert_called_once_with('fanspeed')
 
         self.assertEqual(box.fanspeed, 1449)
+        self.assertEqual(box.fanspeed_act, 1438)
