@@ -92,6 +92,11 @@ be adapted outside the script.
 Hints
 -----
 
+Serial cable details
+====================
+
+TODO: provide serial cable details
+
 Allowing non-root user to access serial port (Ubuntu, Linux)
 ============================================================
 
@@ -142,4 +147,4 @@ Contribute
 
 There is a Contribution guide available if you would like to get involved in
 development of the plugin. We encourage anyone to contribute to our repository.
-
+Missing a feature or node, but you're not sure how to start with it? Create an issue.

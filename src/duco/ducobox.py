@@ -466,17 +466,17 @@ def ducobox_wrapper(args):
 
     set_logging_level(args.loglevel)
 
-    box = DucoInterface(port=args.port, cfgfile=args.network)
+    itf = DucoInterface(port=args.port, cfgfile=args.network)
 
-    box.find_nodes()
+    itf.find_nodes()
 
-    box.load()
+    itf.load()
 
-    if box.is_online():
-        box.store()
+    if itf.is_online():
+        itf.store()
 
     while(True):
-        box.sample()
+        itf.sample()
         time.sleep(args.interval)
 
     return 0
