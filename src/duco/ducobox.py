@@ -135,7 +135,7 @@ class DucoBox(DucoNode):
     KIND = 'BOX'
 
     FAN_SPEED_COMMAND = 'fanspeed'
-    MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
+    MATCH_FAN_SPEED = 'Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+)'
     BOARD_INFO_COMMAND = 'boardinfo'
     MATCH_BOOT_SOFTWARE = '^.*BootSW\s*:\s*(?P<bootsw>.+)\s*$'
     MATCH_SERIAL = '^.*Serial\s*:\s*(?P<serial>.+)\s*$'
@@ -204,12 +204,11 @@ class DucoBox(DucoNode):
         Returns:
             String with parsed value from reply, if regex matched. None otherwise.
         '''
-        for line in reply.split('\n'):
-            match = re.compile(regex).search(line)
-            if match:
-                value = match.group(group)
-                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
-                return value
+        match = re.compile(regex).search(reply)
+        if match:
+            value = match.group(group)
+            logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+            return value
         return None
 
     def sample(self):
