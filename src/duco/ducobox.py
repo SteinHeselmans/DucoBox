@@ -128,6 +128,27 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
+    def _parse_reply(self, reply, msg, unit, regex, group):
+        '''
+        Parse the reply on a command
+
+        Args:
+            reply (str): The reply from the duco interface on your command
+            msg (str): Message of the information to be printed
+            unit (str): Unit of the sampled information
+            regex (str): Regular expression to get the data from the reply
+            group (str): Named group within the regex to get the data from the reply
+
+        Returns:
+            String with parsed value from reply, if regex matched. None otherwise.
+        '''
+        match = re.compile(regex).search(reply)
+        if match:
+            value = match.group(group)
+            logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+            return value
+        return None
+
 
 class DucoBox(DucoNode):
     '''Class for a Duco box device'''
@@ -189,27 +210,6 @@ class DucoBox(DucoNode):
                 if match:
                     self.device_id = match.group('deviceid')
                     logging.info('DucoBox device ID: {id}'.format(id=self.device_id))
-
-    def _parse_reply(self, reply, msg, unit, regex, group):
-        '''
-        Parse the reply on a command
-
-        Args:
-            reply (str): The reply from the duco interface on your command
-            msg (str): Message of the information to be printed
-            unit (str): Unit of the sampled information
-            regex (str): Regular expression to get the data from the reply
-            group (str): Named group within the regex to get the data from the reply
-
-        Returns:
-            String with parsed value from reply, if regex matched. None otherwise.
-        '''
-        match = re.compile(regex).search(reply)
-        if match:
-            value = match.group(group)
-            logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
-            return value
-        return None
 
     def sample(self):
         '''
