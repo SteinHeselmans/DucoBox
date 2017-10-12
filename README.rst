@@ -1,6 +1,6 @@
-.. image:: https://img.shields.io/hexpm/l/plug.svg
-    :target: http://www.apache.org/licenses/LICENSE-2.0
-    :alt: Apache2 License
+.. image:: https://img.shields.io/badge/License-GPL%20v3-blue.svg
+    :target: https://www.gnu.org/licenses/gpl-3.0
+    :alt: GPL v3 License
 
 .. image:: https://travis-ci.org/SteinHeselmans/DucoBox.svg?branch=master
     :target: https://travis-ci.org/SteinHeselmans/DucoBox

@@ -26,7 +26,7 @@ setup(
     description='Read parameters from DucoBox.',
     long_description=open("README.rst").read(),
     zip_safe=False,
-    license='Apache License, Version 2.0',
+    license='GNU General Public License v3 (GPLv3)',
     platforms='any',
     packages=find_packages('src'),
     package_dir={'': 'src'},
@@ -39,7 +39,7 @@ setup(
         # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 1 - Planning',
         'Intended Audience :: End Users/Desktop',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: Unix',
         'Operating System :: POSIX',
         'Operating System :: Microsoft :: Windows',
