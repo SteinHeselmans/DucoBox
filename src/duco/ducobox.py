@@ -158,11 +158,11 @@ class DucoBox(DucoNode):
     FAN_SPEED_COMMAND = 'fanspeed'
     MATCH_FAN_SPEED = 'Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+)'
     BOARD_INFO_COMMAND = 'boardinfo'
-    MATCH_BOOT_SOFTWARE = '^.*BootSW\s*:\s*(?P<bootsw>.+)\s*$'
-    MATCH_SERIAL = '^.*Serial\s*:\s*(?P<serial>.+)\s*$'
-    MATCH_BOARD_NAME = '^.*Board\s*:\s*(?P<board>.+)\s*$'
-    MATCH_BOARD_TYPE = '^.*Type\s*:\s*(?P<type>.+)\s*$'
-    MATCH_DEVICE_ID = '^.*DevId\s*:\s*(?P<deviceid>.+)\s*$'
+    MATCH_BOOT_SOFTWARE = 'BootSW\s*:\s*(?P<bootsw>.+)'
+    MATCH_SERIAL = 'Serial\s*:\s*(?P<serial>.+)'
+    MATCH_BOARD_NAME = 'Board\s*:\s*(?P<board>.+)'
+    MATCH_BOARD_TYPE = 'Type\s*:\s*(?P<type>.+)'
+    MATCH_DEVICE_ID = 'DevId\s*:\s*(?P<deviceid>.+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -175,6 +175,7 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).__init__(number, address, interface)
         self.fanspeed = None
+        self.fanspeed_act = None
         self.boot_software = None
         self.serial = None
         self.board_name = None
@@ -189,27 +190,11 @@ class DucoBox(DucoNode):
         if self.interface:
             logging.info('Getting board information...')
             reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
-            for line in reply.split('\n'):
-                match = re.compile(self.MATCH_BOOT_SOFTWARE).search(line)
-                if match:
-                    self.boot_software = match.group('bootsw')
-                    logging.info('DucoBox software: {software}'.format(software=self.boot_software))
-                match = re.compile(self.MATCH_SERIAL).search(line)
-                if match:
-                    self.serial = match.group('serial')
-                    logging.info('DucoBox serial: {serial}'.format(serial=self.serial))
-                match = re.compile(self.MATCH_BOARD_NAME).search(line)
-                if match:
-                    self.board_name = match.group('board')
-                    logging.info('DucoBox board name: {bname}'.format(bname=self.board_name))
-                match = re.compile(self.MATCH_BOARD_TYPE).search(line)
-                if match:
-                    self.board_type = match.group('type')
-                    logging.info('DucoBox board type: {btype}'.format(btype=self.board_type))
-                match = re.compile(self.MATCH_DEVICE_ID).search(line)
-                if match:
-                    self.device_id = match.group('deviceid')
-                    logging.info('DucoBox device ID: {id}'.format(id=self.device_id))
+            self.boot_software = self._parse_reply(reply, 'software version', '', self.MATCH_BOOT_SOFTWARE, 'bootsw')
+            self.serial = self._parse_reply(reply, 'serial number', '', self.MATCH_SERIAL, 'serial')
+            self.board_name = self._parse_reply(reply, 'board name', '', self.MATCH_BOARD_NAME, 'board')
+            self.board_type = self._parse_reply(reply, 'board type', '', self.MATCH_BOARD_TYPE, 'type')
+            self.device_id = self._parse_reply(reply, 'device ID', '', self.MATCH_DEVICE_ID, 'deviceid')
 
     def sample(self):
         '''
@@ -235,8 +220,8 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
     '''Class for a humidity sensor inside the Duco box device'''
 
     KIND = 'UCRH'
-    MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
-    MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
+    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
+    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -257,17 +242,10 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
         '''
         super(DucoBoxHumiditySensor, self).sample()
         reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
-        for line in reply.split('\n'):
-            match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
-            if match:
-                humidity = float(match.group('humidity')) / 100.0
-                logging.info('- humidity: {humidity} %'.format(humidity=humidity))
-                self.humidity = humidity
-            match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
-            if match:
-                temperature = float(match.group('temperature')) / 10.0
-                logging.info('- temperature: {temperature} degC'.format(temperature=temperature))
-                self.temperature = temperature
+        humidity = self._parse_reply(reply, 'humidity', '%', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity')
+        self.humidity = float(humidity) / 100.0
+        temperature = self._parse_reply(reply, 'temperature', 'degC', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature')
+        self.temperature = float(temperature) / 10.0
 
 
 class DucoBoxCO2Sensor(DucoBoxSensor):
