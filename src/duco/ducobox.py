@@ -13,6 +13,8 @@ import logging
 import time
 from serial import Serial, SerialException
 
+# Get version from file
+__version__ = 'unknown'
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.py")).read())
 
 DEFAULT_LOGLEVEL = 'info'

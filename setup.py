@@ -5,6 +5,7 @@ from os.path import basename, dirname, join, splitext
 from setuptools import find_packages, setup
 
 PROJECT_URL = 'https://github.com/SteinHeselmans/DucoBox'
+__version__ = 'unknown'
 exec(open('src/duco/__version__.py').read())
 
 
