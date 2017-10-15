@@ -5,6 +5,7 @@ from os.path import basename, dirname, join, splitext
 from setuptools import find_packages, setup
 
 PROJECT_URL = 'https://github.com/SteinHeselmans/DucoBox'
+exec(open('src/duco/__version__.py').read())
 
 
 def read(*names, **kwargs):
@@ -19,8 +20,8 @@ requires = ['setuptools-scm', 'pyserial']
 setup(
     name='duco.ducobox',
     url=PROJECT_URL,
-    use_scm_version=True,
-    setup_requires=['setuptools_scm'],
+    version=__version__,
+    setup_requires=[],
     author='Stein Heselmans',
     author_email='stein.heselmans@gmail.com',
     description='Read parameters from DucoBox.',
