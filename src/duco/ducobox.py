@@ -7,13 +7,15 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import sys
+import os
 import re
 import logging
 import time
-from setuptools_scm import get_version
 from serial import Serial, SerialException
 
-__version__ = get_version()
+# Get version from file
+__version__ = 'unknown'
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.py")).read())
 
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
