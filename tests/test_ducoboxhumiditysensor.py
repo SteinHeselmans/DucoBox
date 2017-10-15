@@ -20,5 +20,5 @@ class TestDucoBoxHumiditySensor(TestCase):
         sensor.sample()
         itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
-        self.assertEqual(sensor.humidity, 68.37)
-        self.assertEqual(sensor.temperature, 18.9)
+        self.assertEqual(float(sensor.humidity), 68.37)
+        self.assertEqual(float(sensor.temperature), 18.9)
