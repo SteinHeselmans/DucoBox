@@ -13,10 +13,7 @@ import logging
 import time
 from serial import Serial, SerialException
 
-__version__ = None
-VERSION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'VERSION')
-with open(VERSION_PATH) as version_file:
-    __version__ = version_file.read().strip()
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.py")).read())
 
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
