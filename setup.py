@@ -1,11 +1,13 @@
 import io
 from glob import glob
-from os.path import basename, dirname, join, splitext
+from os.path import abspath, basename, dirname, join, splitext
 
 from setuptools import find_packages, setup
 
 PROJECT_URL = 'https://github.com/SteinHeselmans/DucoBox'
-exec(open('src/duco/__version__.py').read())
+VERSION_PATH = join(dirname(abspath(__file__)), 'VERSION')
+with open(VERSION_PATH) as version_file:
+    version = version_file.read().strip()
 
 
 def read(*names, **kwargs):
@@ -20,7 +22,7 @@ requires = ['setuptools-scm', 'pyserial']
 setup(
     name='duco.ducobox',
     url=PROJECT_URL,
-    version=__version__,
+    version=version,
     setup_requires=[],
     author='Stein Heselmans',
     author_email='stein.heselmans@gmail.com',

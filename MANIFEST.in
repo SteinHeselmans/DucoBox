@@ -5,6 +5,7 @@ graft tests
 # Include the readme file
 include README.rst
 include LICENSE
+include VERSION
 
 include tox.ini .travis.yml .codeclimate.yml
 
