@@ -130,16 +130,17 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
-    def _parse_reply(self, reply, msg, unit, regex, group):
+    def _parse_reply(self, reply, msg, regex, group, factor=None, unit=''):
         '''
         Parse the reply on a command
 
         Args:
             reply (str): The reply from the duco interface on your command
             msg (str): Message of the information to be printed
-            unit (str): Unit of the sampled information
             regex (str): Regular expression to get the data from the reply
             group (str): Named group within the regex to get the data from the reply
+            factor (float): Dividing factor for rescaling parsed value
+            unit (str): Unit of the sampled information
 
         Returns:
             String with parsed value from reply, if regex matched. None otherwise.
@@ -147,8 +148,11 @@ class DucoNode(object):
         match = re.compile(regex).search(reply)
         if match:
             value = match.group(group)
-            logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
-            return value
+            if value:
+                if factor:
+                    value = float(value) / factor
+                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+                return str(value)
         return None
 
 
@@ -192,11 +196,11 @@ class DucoBox(DucoNode):
         if self.interface:
             logging.info('Getting board information...')
             reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
-            self.boot_software = self._parse_reply(reply, 'software version', '', self.MATCH_BOOT_SOFTWARE, 'bootsw')
-            self.serial = self._parse_reply(reply, 'serial number', '', self.MATCH_SERIAL, 'serial')
-            self.board_name = self._parse_reply(reply, 'board name', '', self.MATCH_BOARD_NAME, 'board')
-            self.board_type = self._parse_reply(reply, 'board type', '', self.MATCH_BOARD_TYPE, 'type')
-            self.device_id = self._parse_reply(reply, 'device ID', '', self.MATCH_DEVICE_ID, 'deviceid')
+            self.boot_software = self._parse_reply(reply, 'software version', self.MATCH_BOOT_SOFTWARE, 'bootsw')
+            self.serial = self._parse_reply(reply, 'serial number', self.MATCH_SERIAL, 'serial')
+            self.board_name = self._parse_reply(reply, 'board name', self.MATCH_BOARD_NAME, 'board')
+            self.board_type = self._parse_reply(reply, 'board type', self.MATCH_BOARD_TYPE, 'type')
+            self.device_id = self._parse_reply(reply, 'device ID', self.MATCH_DEVICE_ID, 'deviceid')
 
     def sample(self):
         '''
@@ -204,10 +208,12 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        speed = self._parse_reply(reply, 'fan speed (filtered)', 'rpm', self.MATCH_FAN_SPEED, 'filtered')
-        self.fanspeed = int(speed)
-        speed = self._parse_reply(reply, 'fan speed (actual)', 'rpm', self.MATCH_FAN_SPEED, 'actual')
-        self.fanspeed_act = int(speed)
+        speed = self._parse_reply(reply, 'fan speed (filtered)', self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
+        if speed:
+            self.fanspeed = int(speed)
+        speed = self._parse_reply(reply, 'fan speed (actual)', self.MATCH_FAN_SPEED, 'actual', unit='rpm')
+        if speed:
+            self.fanspeed_act = int(speed)
 
 
 class DucoBoxSensor(DucoNode):
@@ -244,10 +250,12 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
         '''
         super(DucoBoxHumiditySensor, self).sample()
         reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
-        humidity = self._parse_reply(reply, 'humidity', '%', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity')
-        self.humidity = float(humidity) / 100.0
-        temperature = self._parse_reply(reply, 'temperature', 'degC', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature')
-        self.temperature = float(temperature) / 10.0
+        humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit='%', factor=100.0)
+        if humidity:
+            self.humidity = humidity
+        temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit='degC', factor=10.0)
+        if temperature:
+            self.temperature = temperature
 
 
 class DucoBoxCO2Sensor(DucoBoxSensor):
