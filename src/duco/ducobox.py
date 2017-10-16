@@ -7,13 +7,15 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import sys
+import os
 import re
 import logging
 import time
-from setuptools_scm import get_version
 from serial import Serial, SerialException
 
-__version__ = get_version()
+# Get version from file
+__version__ = 'unknown'
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.py")).read())
 
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
@@ -128,14 +130,45 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
+    def _parse_reply(self, reply, msg, regex, group, factor=None, unit=''):
+        '''
+        Parse the reply on a command
+
+        Args:
+            reply (str): The reply from the duco interface on your command
+            msg (str): Message of the information to be printed
+            regex (str): Regular expression to get the data from the reply
+            group (str): Named group within the regex to get the data from the reply
+            factor (float): Dividing factor for rescaling parsed value
+            unit (str): Unit of the sampled information
+
+        Returns:
+            String with parsed value from reply, if regex matched. None otherwise.
+        '''
+        match = re.compile(regex).search(reply)
+        if match:
+            value = match.group(group)
+            if value:
+                if factor:
+                    value = float(value) / factor
+                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+                return str(value)
+        return None
+
 
 class DucoBox(DucoNode):
     '''Class for a Duco box device'''
 
     KIND = 'BOX'
 
-    FAN_SPEED_COMMAND = 'fanspeed\r'
-    MATCH_FAN_SPEED = '^.*Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+).*$'
+    FAN_SPEED_COMMAND = 'fanspeed'
+    MATCH_FAN_SPEED = 'Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+)'
+    BOARD_INFO_COMMAND = 'boardinfo'
+    MATCH_BOOT_SOFTWARE = 'BootSW\s*:\s*(?P<bootsw>.+)'
+    MATCH_SERIAL = 'Serial\s*:\s*(?P<serial>.+)'
+    MATCH_BOARD_NAME = 'Board\s*:\s*(?P<board>.+)'
+    MATCH_BOARD_TYPE = 'Type\s*:\s*(?P<type>.+)'
+    MATCH_DEVICE_ID = 'DevId\s*:\s*(?P<deviceid>.+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -148,6 +181,26 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).__init__(number, address, interface)
         self.fanspeed = None
+        self.fanspeed_act = None
+        self.boot_software = None
+        self.serial = None
+        self.board_name = None
+        self.board_type = None
+        self.device_id = None
+        self._store_board_info()
+
+    def _store_board_info(self):
+        '''
+        Store board information
+        '''
+        if self.interface:
+            logging.info('Getting board information...')
+            reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
+            self.boot_software = self._parse_reply(reply, 'software version', self.MATCH_BOOT_SOFTWARE, 'bootsw')
+            self.serial = self._parse_reply(reply, 'serial number', self.MATCH_SERIAL, 'serial')
+            self.board_name = self._parse_reply(reply, 'board name', self.MATCH_BOARD_NAME, 'board')
+            self.board_type = self._parse_reply(reply, 'board type', self.MATCH_BOARD_TYPE, 'type')
+            self.device_id = self._parse_reply(reply, 'device ID', self.MATCH_DEVICE_ID, 'deviceid')
 
     def sample(self):
         '''
@@ -155,19 +208,18 @@ class DucoBox(DucoNode):
         '''
         super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        for line in reply.split('\r'):
-            match = re.compile(self.MATCH_FAN_SPEED).search(line)
-            if match:
-                actual = int(match.group('actual'))
-                filtered = int(match.group('filtered'))
-                logging.info('- fan speed: {filtered} rpm (act: {actual} rpm)'.format(filtered=filtered, actual=actual))
-                self.fanspeed = filtered
+        speed = self._parse_reply(reply, 'fan speed (filtered)', self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
+        if speed:
+            self.fanspeed = int(speed)
+        speed = self._parse_reply(reply, 'fan speed (actual)', self.MATCH_FAN_SPEED, 'actual', unit='rpm')
+        if speed:
+            self.fanspeed_act = int(speed)
 
 
 class DucoBoxSensor(DucoNode):
     '''Class for a sensor inside the Duco box device'''
 
-    SENSOR_INFO_COMMAND = 'sensorinfo\r'
+    SENSOR_INFO_COMMAND = 'sensorinfo'
 
     pass
 
@@ -176,8 +228,8 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
     '''Class for a humidity sensor inside the Duco box device'''
 
     KIND = 'UCRH'
-    MATCH_SENSOR_INFO_HUMIDITY = '^\s*RH\s*\:\s*(?P<humidity>\d+).*$'
-    MATCH_SENSOR_INFO_TEMPERATURE = '^\s*TEMP\s*\:\s*(?P<temperature>\d+).*$'
+    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
+    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -198,17 +250,12 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
         '''
         super(DucoBoxHumiditySensor, self).sample()
         reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
-        for line in reply.split('\r'):
-            match = re.compile(self.MATCH_SENSOR_INFO_HUMIDITY).search(line)
-            if match:
-                humidity = float(match.group('humidity')) / 100.0
-                logging.info('- humidity: {humidity} %'.format(humidity=humidity))
-                self.humidity = humidity
-            match = re.compile(self.MATCH_SENSOR_INFO_TEMPERATURE).search(line)
-            if match:
-                temperature = float(match.group('temperature')) / 10.0
-                logging.info('- temperature: {temperature} degC'.format(temperature=temperature))
-                self.temperature = temperature
+        humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit='%', factor=100.0)
+        if humidity:
+            self.humidity = humidity
+        temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit='degC', factor=10.0)
+        if temperature:
+            self.temperature = temperature
 
 
 class DucoBoxCO2Sensor(DucoBoxSensor):
@@ -248,7 +295,7 @@ class DucoUserControl(DucoNode):
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
-    LIST_NETWORK_COMMAND = 'network\r'
+    LIST_NETWORK_COMMAND = 'network'
     MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
@@ -330,8 +377,10 @@ class DucoInterface(object):
         for c in cmd:
             time.sleep(SERIAL_CHAR_INTERVAL)
             self._serial.write(c)
-        reply = str(self._serial.readline())
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply.replace('\r', '\n')))
+        time.sleep(SERIAL_CHAR_INTERVAL)
+        self._serial.write('\r')
+        reply = str(self._serial.readline()).replace('\r', '\n')
+        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
         return reply
 
     def add_node(self, kind, number, address):
@@ -368,7 +417,7 @@ class DucoInterface(object):
         if self._serial:
             logging.info('Searching network...')
             reply = self.execute_command(self.LIST_NETWORK_COMMAND)
-            for line in reply.split('\r'):
+            for line in reply.split('\n'):
                 match = re.compile(self.MATCH_NETWORK_COMMAND).search(line)
                 if match:
                     self.add_node(match.group('kind'), match.group('node'), match.group('address'))
@@ -423,17 +472,17 @@ def ducobox_wrapper(args):
 
     set_logging_level(args.loglevel)
 
-    box = DucoInterface(port=args.port, cfgfile=args.network)
+    itf = DucoInterface(port=args.port, cfgfile=args.network)
 
-    box.find_nodes()
+    itf.find_nodes()
 
-    box.load()
+    itf.load()
 
-    if box.is_online():
-        box.store()
+    if itf.is_online():
+        itf.store()
 
     while(True):
-        box.sample()
+        itf.sample()
         time.sleep(args.interval)
 
     return 0
