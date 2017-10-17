@@ -11,6 +11,9 @@ if __name__ == '__main__':
     addresses = [1, 2, 34, 102, 132]
     params = [74, 75]
 
+    addresses = range(255)
+    params = range(255)
+
     for a in addresses:
         for b in params:
             cmd = 'nodeparaget {a} {b}\r'.format(a=a, b=b)
