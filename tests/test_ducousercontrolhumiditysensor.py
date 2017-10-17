@@ -7,11 +7,11 @@ except ImportError as err:
 import duco.ducobox as dut
 
 
-class TestDucoBoxHumiditySensor(TestCase):
+class TestDucoUserControlBoxHumiditySensor(TestCase):
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_happy(self, itf_mock):
-        sensor = dut.DucoBoxHumiditySensor(1, 2)
+        sensor = dut.DucoUserControlHumiditySensor(1, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
         sensor.bind(itf_mock_object)
 
@@ -25,7 +25,7 @@ class TestDucoBoxHumiditySensor(TestCase):
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_no_values(self, itf_mock):
-        sensor = dut.DucoBoxHumiditySensor(1, 2)
+        sensor = dut.DucoUserControlHumiditySensor(1, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
         sensor.bind(itf_mock_object)
 
