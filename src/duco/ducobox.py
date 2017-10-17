@@ -216,16 +216,21 @@ class DucoBox(DucoNode):
             self.fanspeed_act = int(speed)
 
 
-class DucoBoxSensor(DucoNode):
-    '''Class for a sensor inside the Duco box device'''
+class DucoUserControl(DucoNode):
+    '''Class for a user control device inside the Duco box network'''
 
+    KIND = 'UC'
     SENSOR_INFO_COMMAND = 'sensorinfo'
 
-    pass
+
+class DucoUserControlBattery(DucoUserControl):
+    '''Class for a user control with battery inside the Duco box network'''
+
+    KIND = 'UCBAT'
 
 
-class DucoBoxHumiditySensor(DucoBoxSensor):
-    '''Class for a humidity sensor inside the Duco box device'''
+class DucoUserControlHumiditySensor(DucoUserControl):
+    '''Class for a user control with a humidity sensor inside the Duco box network'''
 
     KIND = 'UCRH'
     MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
@@ -240,16 +245,16 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             address (str): Address of the node within the network
             interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoBoxHumiditySensor, self).__init__(number, address, interface)
+        super(DucoUserControlHumiditySensor, self).__init__(number, address, interface)
         self.humidity = None
         self.temperature = None
 
     def sample(self):
         '''
-        Take a sample from the DucoBoxHumiditySensor
+        Take a sample from the DucoUserControlHumiditySensor
         '''
-        super(DucoBoxHumiditySensor, self).sample()
-        reply = self.interface.execute_command(DucoBoxHumiditySensor.SENSOR_INFO_COMMAND)
+        super(DucoUserControlHumiditySensor, self).sample()
+        reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
         humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit='%', factor=100.0)
         if humidity:
             self.humidity = humidity
@@ -258,38 +263,40 @@ class DucoBoxHumiditySensor(DucoBoxSensor):
             self.temperature = temperature
 
 
-class DucoBoxCO2Sensor(DucoBoxSensor):
-    '''Class for a CO2 sensor inside the Duco box device'''
+class DucoUserControlCO2Sensor(DucoUserControl):
+    '''Class for a user control with a CO2 sensor inside the Duco box network'''
 
     KIND = 'UCCO2'
 
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a CO2 sensor inside the Duco box
 
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoBoxCO2Sensor, self).__init__(number, address, interface)
+class DucoValve(DucoNode):
+    '''Class for a valve device inside the Duco box network'''
+
+    KIND = 'VLV'
 
 
-class DucoUserControl(DucoNode):
-    '''Class for a user control device inside the Duco box network'''
+class DucoValveHumiditySensor(DucoValve):
+    '''Class for a valve with a humidity sensor inside the Duco box network'''
 
-    KIND = 'UCBAT'
+    KIND = 'VLVRH'
 
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a user control device inside the Duco network
 
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoUserControl, self).__init__(number, address, interface)
+class DucoValveCO2Sensor(DucoValve):
+    '''Class for a valve with a CO2 sensor inside the Duco box network'''
+
+    KIND = 'VLVCO2'
+
+
+class DucoSwitch(DucoNode):
+    '''Class for a switch inside the Duco box network'''
+
+    KIND = 'SWITCH'
+
+
+class DucoGrille(DucoNode):
+    '''Class for a 'Tronic' ventilation grille with motor and temperature sensor inside the Duco box network'''
+
+    KIND = 'CLIMA'
 
 
 class DucoInterface(object):
@@ -429,17 +436,17 @@ class DucoInterface(object):
             for node in self.nodes:
                 node.sample()
 
-    def get_node(self, address):
+    def get_node(self, number):
         '''
-        Get a node with given address
+        Get a node with given node number
 
         Args:
-            address (str): Address for the node to be found
+            number (str): Number for the node to be found
         Returns:
             Node object with matching address
         '''
         for node in self.nodes:
-            if node.address == address:
+            if node.number == number:
                 return node
         return None
 
