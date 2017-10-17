@@ -1,13 +1,9 @@
 from unittest import TestCase
 try:
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock, patch, mock_open
 except ImportError as err:
-    from mock import MagicMock, patch
+    from mock import MagicMock, patch, mock_open
 
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
 from serial import Serial
 import duco.ducobox as dut
 
@@ -62,30 +58,35 @@ class TestDucoInterface(TestCase):
         self.assertEqual(node.number, '99')
         self.assertEqual(node.address, '999')
 
-    @patch('duco.ducobox.ConfigParser', autospec=True)
-    def test_store_no_file(self, cfgparser_mock):
-        cfgparser_mock_object = MagicMock(spec=ConfigParser)
-        cfgparser_mock.return_value = cfgparser_mock_object
+    def test_store_no_file(self):
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)
-
         itf.store()
+
+    def test_store_invalid_file(self):
+        open_mock = mock_open()
+        itf = dut.DucoInterface(self.MOCK_PORT_NAME, self.MOCK_CFG_FILE)
+        with patch('duco.ducobox.open', open_mock, create=True):
+            itf.store()
+        open_mock.assert_called_once_with(self.MOCK_CFG_FILE, 'w')
+
+    def test_store_no_nodes(self):
+        open_mock = mock_open()
+        itf = dut.DucoInterface(self.MOCK_PORT_NAME, self.MOCK_CFG_FILE)
+        with patch('duco.ducobox.open', open_mock, create=True):
+            itf.store()
+        open_mock.assert_called_once_with(self.MOCK_CFG_FILE, 'w')
 
     @patch('duco.ducobox.ConfigParser', autospec=True)
-    def test_store_invalid_file(self, cfgparser_mock):
-        cfgparser_mock_object = MagicMock(spec=ConfigParser)
+    def test_store_single_node(self, cfgparser_mock):
+        cfgparser_mock_object = MagicMock(spec=dut.ConfigParser)
         cfgparser_mock.return_value = cfgparser_mock_object
+        print(cfgparser_mock_object)
+        open_mock = mock_open()
         itf = dut.DucoInterface(self.MOCK_PORT_NAME, self.MOCK_CFG_FILE)
-
-        # TODO: mock the file open to fail
-
-        itf.store()
-
-    @patch('duco.ducobox.ConfigParser', autospec=True)
-    def test_store_no_nodes(self, cfgparser_mock):
-        cfgparser_mock_object = MagicMock(spec=ConfigParser)
-        cfgparser_mock.return_value = cfgparser_mock_object
-        itf = dut.DucoInterface(self.MOCK_PORT_NAME, self.MOCK_CFG_FILE)
-
-        # TODO: mock the file open to pass
-
-        itf.store()
+        node = dut.DucoNode('11', '22', itf)
+        itf.nodes.append(node)
+        with patch('duco.ducobox.open', open_mock, create=True):
+            itf.store()
+        open_mock.assert_called_once_with(self.MOCK_CFG_FILE, 'w')
+        # cfgparser_mock_object.add_section.assert_called_once()
+        # cfgparser_mock_object.write.assert_called_once()
