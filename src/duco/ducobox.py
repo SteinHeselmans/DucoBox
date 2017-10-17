@@ -335,13 +335,16 @@ class DucoInterface(object):
         '''
         Store to network configuration file
         '''
-        logging.info('Storing network configuration...')
-        cfgparser = ConfigParser()
-        for node in self.nodes:
-            node._store(cfgparser)
-        with open(self.cfgfile, 'w') as cfgfile:
-            cfgparser.write(cfgfile)
-        logging.debug('Store finished')
+        if self.cfgfile:
+            with open(self.cfgfile, 'w') as cfgfile:
+                logging.info('Storing network configuration...')
+                cfgparser = ConfigParser()
+                for node in self.nodes:
+                    node._store(cfgparser)
+                cfgparser.write(cfgfile)
+                logging.debug('Store finished')
+        else:
+            logging.warning('Not storing: no network configuration file given')
 
     def load(self):
         '''
