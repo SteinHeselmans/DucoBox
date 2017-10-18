@@ -20,6 +20,14 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
 SERIAL_CHAR_INTERVAL = 0.1
+CO2_PARAGET_VALUE_PARAMETER = 74
+HUMIDITY_PARAGET_VALUE_PARAMETER = 75
+HUMIDITY_UNIT = '%'
+CO2_UNIT = 'ppm'
+TEMPERATURE_UNIT = 'degC'
+HUMIDITY_SCALING = 100.0
+CO2_SCALING = 1
+TEMPERATURE_SCALING = 10.0
 
 
 def set_logging_level(loglevel):
@@ -39,6 +47,11 @@ class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
     KIND = None
+    PARAGET_COMMAND = 'nodeparaget {node} {para}'
+    PARAGET_VALUE_PARAMETER = 0
+    PARAGET_REGEX = '-->\s*(?P<value>\d+)'
+    PARAGET_UNIT = ''
+    PARAGET_SCALING = None
 
     def __init__(self, number, address, interface=None):
         '''
@@ -52,6 +65,7 @@ class DucoNode(object):
         self.number = str(number)
         self.address = str(address)
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
+        self.value = None
         self.bind(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
@@ -119,7 +133,12 @@ class DucoNode(object):
         '''
         Take a sample from the DucoNode
         '''
-        pass
+        if self.interface:
+            cmd = self.PARAGET_COMMAND.format(node=self.number, para=self.PARAGET_VALUE_PARAMETER)
+            reply = self.interface.execute_command(cmd)
+            self.value = self._parse_reply(reply, 'value', self.PARAGET_REGEX, 'value', unit=self.PARAGET_UNIT, scaling=self.PARAGET_SCALING)
+        else:
+            logging.error('No interface to duco')
 
     def __str__(self):
         '''
@@ -130,7 +149,7 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
-    def _parse_reply(self, reply, msg, regex, group, factor=None, unit=''):
+    def _parse_reply(self, reply, msg, regex, group, scaling=None, unit=''):
         '''
         Parse the reply on a command
 
@@ -139,7 +158,7 @@ class DucoNode(object):
             msg (str): Message of the information to be printed
             regex (str): Regular expression to get the data from the reply
             group (str): Named group within the regex to get the data from the reply
-            factor (float): Dividing factor for rescaling parsed value
+            scaling (float): Dividing factor for rescaling parsed value
             unit (str): Unit of the sampled information
 
         Returns:
@@ -149,8 +168,8 @@ class DucoNode(object):
         if match:
             value = match.group(group)
             if value:
-                if factor:
-                    value = float(value) / factor
+                if scaling:
+                    value = float(value) / scaling
                 logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
                 return str(value)
         return None
@@ -206,7 +225,6 @@ class DucoBox(DucoNode):
         '''
         Take a sample from the DucoBox
         '''
-        super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, 'fan speed (filtered)', self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
         if speed:
@@ -233,6 +251,10 @@ class DucoUserControlHumiditySensor(DucoUserControl):
     '''Class for a user control with a humidity sensor inside the Duco box network'''
 
     KIND = 'UCRH'
+    PARAGET_VALUE_PARAMETER = HUMIDITY_PARAGET_VALUE_PARAMETER
+    PARAGET_UNIT = HUMIDITY_UNIT
+    PARAGET_SCALING = HUMIDITY_SCALING
+
     MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
     MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
 
@@ -253,20 +275,25 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         '''
         Take a sample from the DucoUserControlHumiditySensor
         '''
-        super(DucoUserControlHumiditySensor, self).sample()
-        reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
-        humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit='%', factor=100.0)
-        if humidity:
-            self.humidity = humidity
-        temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit='degC', factor=10.0)
-        if temperature:
-            self.temperature = temperature
+        if 0:
+            super(DucoUserControlHumiditySensor, self).sample()
+        else:
+            reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
+            humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
+            if humidity:
+                self.value = humidity
+            temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
+            if temperature:
+                self.temperature = temperature
 
 
 class DucoUserControlCO2Sensor(DucoUserControl):
     '''Class for a user control with a CO2 sensor inside the Duco box network'''
 
     KIND = 'UCCO2'
+    PARAGET_VALUE_PARAMETER = CO2_PARAGET_VALUE_PARAMETER
+    PARAGET_UNIT = CO2_UNIT
+    PARAGET_SCALING = CO2_SCALING
 
 
 class DucoValve(DucoNode):
@@ -279,12 +306,18 @@ class DucoValveHumiditySensor(DucoValve):
     '''Class for a valve with a humidity sensor inside the Duco box network'''
 
     KIND = 'VLVRH'
+    PARAGET_VALUE_PARAMETER = HUMIDITY_PARAGET_VALUE_PARAMETER
+    PARAGET_UNIT = HUMIDITY_UNIT
+    PARAGET_SCALING = HUMIDITY_SCALING
 
 
 class DucoValveCO2Sensor(DucoValve):
     '''Class for a valve with a CO2 sensor inside the Duco box network'''
 
     KIND = 'VLVCO2'
+    PARAGET_VALUE_PARAMETER = CO2_PARAGET_VALUE_PARAMETER
+    PARAGET_UNIT = CO2_UNIT
+    PARAGET_SCALING = CO2_SCALING
 
 
 class DucoSwitch(DucoNode):
