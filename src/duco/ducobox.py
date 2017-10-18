@@ -220,6 +220,8 @@ class DucoBox(DucoNode):
             self.board_name = self._parse_reply(reply, 'board name', self.MATCH_BOARD_NAME, 'board')
             self.board_type = self._parse_reply(reply, 'board type', self.MATCH_BOARD_TYPE, 'type')
             self.device_id = self._parse_reply(reply, 'device ID', self.MATCH_DEVICE_ID, 'deviceid')
+        else:
+            logging.error('No interface to duco')
 
     def sample(self):
         '''
@@ -275,16 +277,21 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         '''
         Take a sample from the DucoUserControlHumiditySensor
         '''
-        if 0:
-            super(DucoUserControlHumiditySensor, self).sample()
+        if self.interface:
+            if self.interface.supports_command('nodeparalist'):
+                super(DucoUserControlHumiditySensor, self).sample()
+            else:
+                reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
+                humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
+                                             unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
+                if humidity:
+                    self.value = humidity
+                temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE,
+                                                'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
+                if temperature:
+                    self.temperature = temperature
         else:
-            reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
-            humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
-            if humidity:
-                self.value = humidity
-            temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
-            if temperature:
-                self.temperature = temperature
+            logging.error('No interface to duco')
 
 
 class DucoUserControlCO2Sensor(DucoUserControl):
@@ -350,6 +357,7 @@ class DucoInterface(object):
         self._serial = None
         self.nodes = []
         self.bind(port)
+        self._store_commands()
         self.cfgfile = cfgfile
         self._live = False
 
@@ -413,17 +421,21 @@ class DucoInterface(object):
             str: Received answer
         '''
         logging.debug('Serial command:\n{command}'.format(command=command))
-        self._serial.write('\r')
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.readline()
-        cmd = command.encode('utf-8')
-        for c in cmd:
+        reply = ''
+        if self._serial:
+            self._serial.write('\r')
             time.sleep(SERIAL_CHAR_INTERVAL)
-            self._serial.write(c)
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.write('\r')
-        reply = str(self._serial.readline()).replace('\r', '\n')
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+            self._serial.readline()
+            cmd = command.encode('utf-8')
+            for c in cmd:
+                time.sleep(SERIAL_CHAR_INTERVAL)
+                self._serial.write(c)
+            time.sleep(SERIAL_CHAR_INTERVAL)
+            self._serial.write('\r')
+            reply = str(self._serial.readline()).replace('\r', '\n')
+            logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+        else:
+            logging.warning('No serial device')
         return reply
 
     def add_node(self, kind, number, address):
@@ -485,6 +497,26 @@ class DucoInterface(object):
             if node.number == number:
                 return node
         return None
+
+    def _store_commands(self):
+        '''
+        Store list of command which the duco interface will support
+        '''
+        self.commands = []
+        reply = self.execute_command('help')
+        for line in reply.split('\n'):
+            self.commands.append(line.lower().split()[0])
+
+    def supports_command(self, cmd):
+        '''
+        Check whether a command is supported by the duco interface
+
+        Args:
+            cmd (str): Command to check
+        Returns:
+            True if the command is supported, false otherwise.
+        '''
+        return cmd.lower() in self.commands
 
 
 def ducobox_wrapper(args):
