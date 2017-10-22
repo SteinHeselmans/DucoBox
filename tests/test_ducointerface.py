@@ -21,7 +21,6 @@ class TestDucoInterface(TestCase):
     def test_network_simple(self, serial_mock):
         serial_mock_object = MagicMock(spec=Serial)
         serial_mock.return_value = serial_mock_object
-        serial_mock_object.readline.return_value = ''
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)
 
         self.assertFalse(itf.is_online())
@@ -66,7 +65,6 @@ class TestDucoInterface(TestCase):
     def test_network_complex(self, serial_mock):
         serial_mock_object = MagicMock(spec=Serial)
         serial_mock.return_value = serial_mock_object
-        serial_mock_object.readline.return_value = ''
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)
 
         self.assertFalse(itf.is_online())
@@ -183,65 +181,6 @@ class TestDucoInterface(TestCase):
         self.assertIsInstance(node, dut.DucoSwitch)
         self.assertEqual(node.number, '133')
         self.assertEqual(node.address, '132')
-
-    @patch('duco.ducobox.Serial', autospec=True)
-    def test_store_commands(self, serial_mock):
-        serial_mock_object = MagicMock(spec=Serial)
-        serial_mock.return_value = serial_mock_object
-        serial_mock_object.readline.return_value = ''
-
-        with open('tests/cmd_help_ducobox_silent.txt') as cmdfile:
-            serial_mock_object.readline.return_value = cmdfile.read().replace('\n', '\r')
-        itf = dut.DucoInterface(self.MOCK_PORT_NAME)
-
-        # TODO: enable assert when write of command is a single API call again
-        # serial_mock_object.write.assert_called_once_with(self.duco_encoded('help'))
-
-        self.assertTrue(itf.supports_command('BoardInfo'))
-        self.assertTrue(itf.supports_command('CommAlInfo'))
-        self.assertTrue(itf.supports_command('CommDllDefaults'))
-        self.assertTrue(itf.supports_command('CommDllInfo'))
-        self.assertTrue(itf.supports_command('CommDllSetReg'))
-        self.assertTrue(itf.supports_command('CommInfo'))
-        self.assertTrue(itf.supports_command('CommNlInfo'))
-        self.assertTrue(itf.supports_command('DataClear'))
-        self.assertTrue(itf.supports_command('DataDefaults'))
-        self.assertTrue(itf.supports_command('DataInfo'))
-        self.assertTrue(itf.supports_command('DataSave'))
-        self.assertTrue(itf.supports_command('FanCalib'))
-        self.assertTrue(itf.supports_command('FanCalibClear'))
-        self.assertTrue(itf.supports_command('FanCalibNext'))
-        self.assertTrue(itf.supports_command('FanCalibSet'))
-        self.assertTrue(itf.supports_command('FanCalibStart'))
-        self.assertTrue(itf.supports_command('FanCalibStop'))
-        self.assertTrue(itf.supports_command('FanParaGet'))
-        self.assertTrue(itf.supports_command('FanParaSet'))
-        self.assertTrue(itf.supports_command('FanPerformGet'))
-        self.assertTrue(itf.supports_command('FanSpeed'))
-        self.assertTrue(itf.supports_command('InstallerSet'))
-        self.assertTrue(itf.supports_command('Network'))
-        self.assertTrue(itf.supports_command('NetwSerial'))
-        self.assertTrue(itf.supports_command('NetwVersion'))
-        self.assertTrue(itf.supports_command('NodeConfigGet'))
-        self.assertTrue(itf.supports_command('NodeConfigSet'))
-        self.assertTrue(itf.supports_command('NodeInfo'))
-        self.assertTrue(itf.supports_command('NodeLoadDefaults'))
-        self.assertTrue(itf.supports_command('NodeParaGet'))
-        self.assertTrue(itf.supports_command('NodeParaSet'))
-        self.assertTrue(itf.supports_command('NodeReset'))
-        self.assertTrue(itf.supports_command('NodeSaveData'))
-        self.assertTrue(itf.supports_command('NodeSetAsso'))
-        self.assertTrue(itf.supports_command('NodeSetOverrule'))
-        self.assertTrue(itf.supports_command('NodeSetParent'))
-        self.assertTrue(itf.supports_command('ResetToDefaults'))
-        self.assertTrue(itf.supports_command('SensorCtrlInfo'))
-        self.assertTrue(itf.supports_command('SensorCtrlParaGet'))
-        self.assertTrue(itf.supports_command('SensorCtrlParaSet'))
-        self.assertTrue(itf.supports_command('SensorInfo'))
-        self.assertTrue(itf.supports_command('VentCtrlParaGet'))
-        self.assertTrue(itf.supports_command('VentCtrlParaSet'))
-
-        self.assertFalse(itf.supports_command('NodeParaList'))
 
     def test_store_no_file(self):
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)

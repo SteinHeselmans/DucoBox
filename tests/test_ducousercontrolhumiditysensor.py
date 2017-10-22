@@ -15,11 +15,10 @@ class TestDucoUserControlBoxHumiditySensor(TestCase):
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
         sensor.bind(itf_mock_object)
 
-        itf_mock_object.supports_command.return_value = False
+        itf_mock_object.is_extended.return_value = False
         with open('tests/cmd_sensorinfo.txt') as cmdfile:
             itf_mock_object.execute_command.return_value = cmdfile.read()
         sensor.sample()
-        itf_mock_object.supports_command.assert_called_once_with('nodeparalist')
         itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
         self.assertEqual(float(sensor.value), 68.37)
@@ -31,10 +30,9 @@ class TestDucoUserControlBoxHumiditySensor(TestCase):
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
         sensor.bind(itf_mock_object)
 
-        itf_mock_object.supports_command.return_value = False
+        itf_mock_object.is_extended.return_value = False
         itf_mock_object.execute_command.return_value = 'invalid command'
         sensor.sample()
-        itf_mock_object.supports_command.assert_called_once_with('nodeparalist')
         itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
         self.assertEqual(sensor.value, None)
