@@ -136,7 +136,7 @@ class DucoNode(object):
         if self.interface:
             cmd = self.PARAGET_COMMAND.format(node=self.number, para=self.PARAGET_VALUE_PARAMETER)
             reply = self.interface.execute_command(cmd)
-            self.value = self._parse_reply(reply, 'value', self.PARAGET_REGEX, 'value', unit=self.PARAGET_UNIT, scaling=self.PARAGET_SCALING)
+            self.value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=self.PARAGET_UNIT, scaling=self.PARAGET_SCALING)
         else:
             logging.error('No interface to duco')
 
@@ -149,13 +149,12 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
-    def _parse_reply(self, reply, msg, regex, group, scaling=None, unit=''):
+    def _parse_reply(self, reply, regex, group, scaling=None, unit=''):
         '''
         Parse the reply on a command
 
         Args:
             reply (str): The reply from the duco interface on your command
-            msg (str): Message of the information to be printed
             regex (str): Regular expression to get the data from the reply
             group (str): Named group within the regex to get the data from the reply
             scaling (float): Dividing factor for rescaling parsed value
@@ -170,7 +169,7 @@ class DucoNode(object):
             if value:
                 if scaling:
                     value = float(value) / scaling
-                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
+                logging.info('- {msg}: {value} {unit}'.format(msg=self.name, value=value, unit=unit))
                 return str(value)
         return None
 
@@ -215,21 +214,25 @@ class DucoBox(DucoNode):
         if self.interface:
             logging.info('Getting board information...')
             reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
-            self.boot_software = self._parse_reply(reply, 'software version', self.MATCH_BOOT_SOFTWARE, 'bootsw')
-            self.serial = self._parse_reply(reply, 'serial number', self.MATCH_SERIAL, 'serial')
-            self.board_name = self._parse_reply(reply, 'board name', self.MATCH_BOARD_NAME, 'board')
-            self.board_type = self._parse_reply(reply, 'board type', self.MATCH_BOARD_TYPE, 'type')
-            self.device_id = self._parse_reply(reply, 'device ID', self.MATCH_DEVICE_ID, 'deviceid')
+            self.boot_software = self._parse_reply(reply, self.MATCH_BOOT_SOFTWARE, 'bootsw')
+            self.serial = self._parse_reply(reply, self.MATCH_SERIAL, 'serial')
+            self.board_name = self._parse_reply(reply, self.MATCH_BOARD_NAME, 'board')
+            self.board_type = self._parse_reply(reply, self.MATCH_BOARD_TYPE, 'type')
+            self.device_id = self._parse_reply(reply, self.MATCH_DEVICE_ID, 'deviceid')
+            if self.board_name and "BASIC" not in self.board_name:
+                self.interface.set_extended()
+        else:
+            logging.error('No interface to duco')
 
     def sample(self):
         '''
         Take a sample from the DucoBox
         '''
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        speed = self._parse_reply(reply, 'fan speed (filtered)', self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
+        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
             self.fanspeed = int(speed)
-        speed = self._parse_reply(reply, 'fan speed (actual)', self.MATCH_FAN_SPEED, 'actual', unit='rpm')
+        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'actual', unit='rpm (actual)')
         if speed:
             self.fanspeed_act = int(speed)
 
@@ -275,16 +278,21 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         '''
         Take a sample from the DucoUserControlHumiditySensor
         '''
-        if 0:
-            super(DucoUserControlHumiditySensor, self).sample()
+        if self.interface:
+            if self.interface.is_extended():
+                super(DucoUserControlHumiditySensor, self).sample()
+            else:
+                reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
+                humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
+                                             unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
+                if humidity:
+                    self.value = humidity
+                temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
+                                                'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
+                if temperature:
+                    self.temperature = temperature
         else:
-            reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
-            humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
-            if humidity:
-                self.value = humidity
-            temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
-            if temperature:
-                self.temperature = temperature
+            logging.error('No interface to duco')
 
 
 class DucoUserControlCO2Sensor(DucoUserControl):
@@ -352,6 +360,7 @@ class DucoInterface(object):
         self.bind(port)
         self.cfgfile = cfgfile
         self._live = False
+        self._extended = False
 
     def is_online(self):
         '''
@@ -363,6 +372,26 @@ class DucoInterface(object):
         if self._live:
             return True
         return False
+
+    def is_extended(self):
+        '''
+        Check if the the attached interface is extended
+
+        Returns:
+            True if the interface is extended, false otherwise
+        '''
+        return self._extended
+
+    def set_extended(self, extended=True):
+        '''
+        Mark the attached interface to be extended
+
+        Extended interface means the nodeparalist command (and friends) are available
+
+        Args:
+            extended (bool): True if the interface is extended
+        '''
+        self._extended = extended
 
     def store(self):
         '''
@@ -413,17 +442,21 @@ class DucoInterface(object):
             str: Received answer
         '''
         logging.debug('Serial command:\n{command}'.format(command=command))
-        self._serial.write('\r')
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.readline()
-        cmd = command.encode('utf-8')
-        for c in cmd:
+        reply = ''
+        if self._serial:
+            self._serial.write('\r')
             time.sleep(SERIAL_CHAR_INTERVAL)
-            self._serial.write(c)
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.write('\r')
-        reply = str(self._serial.readline()).replace('\r', '\n')
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+            self._serial.readline()
+            cmd = command.encode('utf-8')
+            for c in cmd:
+                time.sleep(SERIAL_CHAR_INTERVAL)
+                self._serial.write(c)
+            time.sleep(SERIAL_CHAR_INTERVAL)
+            self._serial.write('\r')
+            reply = str(self._serial.readline()).replace('\r', '\n')
+            logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+        else:
+            logging.warning('No serial device')
         return reply
 
     def add_node(self, kind, number, address):

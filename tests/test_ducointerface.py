@@ -67,11 +67,15 @@ class TestDucoInterface(TestCase):
         serial_mock.return_value = serial_mock_object
         itf = dut.DucoInterface(self.MOCK_PORT_NAME)
 
+        self.assertFalse(itf.is_online())
+
         with open('tests/cmd_network_complex.txt') as cmdfile:
             serial_mock_object.readline.return_value = cmdfile.read().replace('\n', '\r')
         itf.find_nodes()
         # TODO: enable assert when write of command is a single API call again
         # serial_mock_object.write.assert_called_once_with(self.duco_encoded('network'))
+
+        self.assertTrue(itf.is_online())
 
         node = itf.get_node('1')
         self.assertIsInstance(node, dut.DucoBox)
