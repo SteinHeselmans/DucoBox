@@ -229,10 +229,10 @@ class DucoBox(DucoNode):
         Take a sample from the DucoBox
         '''
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
+        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
             self.fanspeed = int(speed)
-        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'actual', unit='rpm')
+        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'actual', unit='rpm (actual)')
         if speed:
             self.fanspeed_act = int(speed)
 
