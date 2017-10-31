@@ -20,8 +20,7 @@ class TestDucoBox(TestCase):
         box.sample()
         itf_mock_object.execute_command.assert_called_once_with('fanspeed')
 
-        self.assertEqual(int(box.fanspeed), 1449)
-        self.assertEqual(int(box.fanspeed_act), 1438)
+        self.assertEqual(int(box.parameters[dut.FANSPEED_STR].get_value()), 1449)
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_no_values(self, itf_mock):
@@ -33,5 +32,4 @@ class TestDucoBox(TestCase):
         box.sample()
         itf_mock_object.execute_command.assert_called_once_with('fanspeed')
 
-        self.assertEqual(box.fanspeed, None)
-        self.assertEqual(box.fanspeed_act, None)
+        self.assertEqual(box.parameters[dut.FANSPEED_STR].get_value(), None)

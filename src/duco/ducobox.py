@@ -24,6 +24,7 @@ SERIAL_CHAR_INTERVAL = 0.1
 CO2_STR = 'CO2'
 HUMIDITY_STR = 'humidity'
 TEMPERATURE_STR = 'temperature'
+FANSPEED_STR = 'fanspeed'
 
 CO2_PARAGET_ID = 74
 HUMIDITY_PARAGET_ID = 75
@@ -32,10 +33,12 @@ TEMPERATURE_PARAGET_ID = 73
 HUMIDITY_UNIT = '%'
 CO2_UNIT = 'ppm'
 TEMPERATURE_UNIT = 'degC'
+FANSPEED_UNIT = 'rpm'
 
 HUMIDITY_SCALING = 100.0
 CO2_SCALING = 1
 TEMPERATURE_SCALING = 10.0
+FANSPEED_SCALING = 1.0
 
 
 def set_logging_level(loglevel):
@@ -95,6 +98,14 @@ class DucoNodeParameter(object):
             str: String representation of the object
         '''
         return '{value} {unit}'.format(value=self.value, unit=self.unit, address=self.address)
+
+
+class DucoNodeFanSpeed(DucoNodeParameter):
+    '''Class for holding a fan speed parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a fan speed parameter'''
+        super(DucoNodeFanSpeed, self).__init__('fanspeed', FANSPEED_UNIT, FANSPEED_SCALING)
 
 
 class DucoNodeParaGetParameter(DucoNodeParameter):
@@ -303,8 +314,7 @@ class DucoBox(DucoNode):
             interface (DucoInterface): Interface object to use when executing commands
         '''
         super(DucoBox, self).__init__(number, address, interface)
-        self.fanspeed = None
-        self.fanspeed_act = None
+        self.parameters[FANSPEED_STR] = DucoNodeFanSpeed()
         self.boot_software = None
         self.serial = None
         self.board_name = None
@@ -336,10 +346,7 @@ class DucoBox(DucoNode):
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
-            self.fanspeed = int(speed)
-        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'actual', unit='rpm (actual)')
-        if speed:
-            self.fanspeed_act = int(speed)
+            self.parameters[FANSPEED_STR].set_value(speed)
 
 
 class DucoUserControl(DucoNode):
