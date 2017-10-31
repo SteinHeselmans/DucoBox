@@ -72,7 +72,7 @@ class DucoNodeParameter(object):
             value (float): New value for the parameter
         '''
         self.value = float(value) / self.scaling
-        logging.info('- {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
+        logging.info('    - {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
 
     def get_value(self):
         '''
@@ -224,6 +224,7 @@ class DucoNode(object):
         Take a sample from the DucoNode
         '''
         if self.interface:
+            logging.info('  - {name}'.format(name=self.name))
             for name in self.parameters:
                 parameter = self.parameters[name]
                 cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
