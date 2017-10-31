@@ -343,6 +343,7 @@ class DucoBox(DucoNode):
         '''
         Take a sample from the DucoBox
         '''
+        logging.info('  - {name}'.format(name=self.name))
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
