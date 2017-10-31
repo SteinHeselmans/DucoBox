@@ -20,8 +20,12 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
 SERIAL_CHAR_INTERVAL = 0.1
-CO2_PARAGET_VALUE_PARAMETER = 74
-HUMIDITY_PARAGET_VALUE_PARAMETER = 75
+CO2_STR = 'CO2'
+HUMIDITY_STR = 'humidity'
+TEMPERATURE_STR = 'temperature'
+CO2_PARAGET_ID = 74
+HUMIDITY_PARAGET_ID = 75
+TEMPERATURE_PARAGET_ID = 73
 HUMIDITY_UNIT = '%'
 CO2_UNIT = 'ppm'
 TEMPERATURE_UNIT = 'degC'
@@ -43,15 +47,101 @@ def set_logging_level(loglevel):
     logging.basicConfig(level=numeric_level, format='%(message)s')
 
 
+class DucoNodeParameter(object):
+    '''Class for holding a parameter for Duco Nodes'''
+
+    def __init__(self, name, unit='', scaling=1.0):
+        '''
+        Initializer for a node parameter
+
+        Args:
+            name (str): Name of the parameter
+            unit (str): Unit of the parameter
+            scaling (float): Dividing factor for rescaling parsed value
+        '''
+        self.name = name
+        self.unit = unit
+        self.scaling = float(scaling)
+        self.value = None
+
+    def set_value(self, value):
+        '''
+        Set the value for the node parameter
+
+        Args:
+            value (float): New value for the parameter
+        '''
+        self.value = float(value) / self.scaling
+        logging.info('- {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
+
+    def get_value(self):
+        '''
+        Set the value for the node parameter
+
+        Returns:
+            Float value for the parameter, or None
+        '''
+        return self.value
+
+    def __str__(self):
+        '''
+        Convert duco node parameter to string
+
+        Returns:
+            str: String representation of the object
+        '''
+        return '{value} {unit}'.format(value=self.value, unit=self.unit, address=self.address)
+
+
+class DucoNodeParaGetParameter(DucoNodeParameter):
+    '''Class for holding a parameter for Duco Nodes, that can be retrieved through the nodeparaget command'''
+
+    def __init__(self, name, unit, scaling, getter_id):
+        '''
+        Initializer for a node parameter
+
+        Args:
+            name (str): Name of the parameter
+            unit (str): Unit of the parameter
+            scaling (float): Dividing factor for rescaling parsed value
+            getter_id (int): Number to be used during the nodeparaget command as ID
+        '''
+        super(DucoNodeParaGetParameter, self).__init__(name, unit, scaling)
+        self.getter_id = int(getter_id)
+
+
+class DucoNodeHumidityParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a humidity-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a humidity parameter'''
+        super(DucoNodeHumidityParaGet, self).__init__('humidity', HUMIDITY_UNIT, HUMIDITY_SCALING,
+                                                      HUMIDITY_PARAGET_ID)
+
+
+class DucoNodeCO2ParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a CO2-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a CO2 parameter'''
+        super(DucoNodeCO2ParaGet, self).__init__('CO2', CO2_UNIT, CO2_SCALING, CO2_PARAGET_ID)
+
+
+class DucoNodeTemperatureParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a temperature-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a temperature parameter'''
+        super(DucoNodeTemperatureParaGet, self).__init__('temperature', TEMPERATURE_UNIT, TEMPERATURE_SCALING,
+                                                         TEMPERATURE_PARAGET_ID)
+
+
 class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
     KIND = None
     PARAGET_COMMAND = 'nodeparaget {node} {para}'
-    PARAGET_VALUE_PARAMETER = 0
     PARAGET_REGEX = '-->\s*(?P<value>\d+)'
-    PARAGET_UNIT = ''
-    PARAGET_SCALING = None
 
     def __init__(self, number, address, interface=None):
         '''
@@ -65,7 +155,7 @@ class DucoNode(object):
         self.number = str(number)
         self.address = str(address)
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
-        self.value = None
+        self.parameters = {}
         self.bind(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
@@ -134,11 +224,26 @@ class DucoNode(object):
         Take a sample from the DucoNode
         '''
         if self.interface:
-            cmd = self.PARAGET_COMMAND.format(node=self.number, para=self.PARAGET_VALUE_PARAMETER)
-            reply = self.interface.execute_command(cmd)
-            self.value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=self.PARAGET_UNIT, scaling=self.PARAGET_SCALING)
+            for name in self.parameters:
+                parameter = self.parameters[name]
+                cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
+                reply = self.interface.execute_command(cmd)
+                value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
+                if value is not None:
+                    parameter.set_value(value)
         else:
             logging.error('No interface to duco')
+
+    def get_value(self, parameter):
+        '''
+        Get value for parameter
+
+        Args:
+            parameter (str): String for the name of the parameter to get
+        '''
+        if parameter in self.parameters:
+            return self.parameters[parameter].get_value()
+        return None
 
     def __str__(self):
         '''
@@ -165,12 +270,7 @@ class DucoNode(object):
         '''
         match = re.compile(regex).search(reply)
         if match:
-            value = match.group(group)
-            if value:
-                if scaling:
-                    value = float(value) / scaling
-                logging.info('- {msg}: {value} {unit}'.format(msg=self.name, value=value, unit=unit))
-                return str(value)
+            return match.group(group)
         return None
 
 
@@ -254,9 +354,6 @@ class DucoUserControlHumiditySensor(DucoUserControl):
     '''Class for a user control with a humidity sensor inside the Duco box network'''
 
     KIND = 'UCRH'
-    PARAGET_VALUE_PARAMETER = HUMIDITY_PARAGET_VALUE_PARAMETER
-    PARAGET_UNIT = HUMIDITY_UNIT
-    PARAGET_SCALING = HUMIDITY_SCALING
 
     MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
     MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
@@ -273,6 +370,8 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         super(DucoUserControlHumiditySensor, self).__init__(number, address, interface)
         self.humidity = None
         self.temperature = None
+        self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
     def sample(self):
         '''
@@ -282,15 +381,15 @@ class DucoUserControlHumiditySensor(DucoUserControl):
             if self.interface.is_extended():
                 super(DucoUserControlHumiditySensor, self).sample()
             else:
-                reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
+                reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
                 humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
                                              unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
                 if humidity:
-                    self.value = humidity
+                    self.parameters[HUMIDITY_STR].set_value(humidity)
                 temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
                                                 'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
                 if temperature:
-                    self.temperature = temperature
+                    self.parameters[TEMPERATURE_STR].set_value(temperature)
         else:
             logging.error('No interface to duco')
 
@@ -299,9 +398,19 @@ class DucoUserControlCO2Sensor(DucoUserControl):
     '''Class for a user control with a CO2 sensor inside the Duco box network'''
 
     KIND = 'UCCO2'
-    PARAGET_VALUE_PARAMETER = CO2_PARAGET_VALUE_PARAMETER
-    PARAGET_UNIT = CO2_UNIT
-    PARAGET_SCALING = CO2_SCALING
+
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a CO2 sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoUserControlCO2Sensor, self).__init__(number, address, interface)
+        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoValve(DucoNode):
@@ -314,18 +423,38 @@ class DucoValveHumiditySensor(DucoValve):
     '''Class for a valve with a humidity sensor inside the Duco box network'''
 
     KIND = 'VLVRH'
-    PARAGET_VALUE_PARAMETER = HUMIDITY_PARAGET_VALUE_PARAMETER
-    PARAGET_UNIT = HUMIDITY_UNIT
-    PARAGET_SCALING = HUMIDITY_SCALING
+
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a humidity sensor inside a valve
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoValveHumiditySensor, self).__init__(number, address, interface)
+        self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoValveCO2Sensor(DucoValve):
     '''Class for a valve with a CO2 sensor inside the Duco box network'''
 
     KIND = 'VLVCO2'
-    PARAGET_VALUE_PARAMETER = CO2_PARAGET_VALUE_PARAMETER
-    PARAGET_UNIT = CO2_UNIT
-    PARAGET_SCALING = CO2_SCALING
+
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a CO2 sensor inside a valve
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoValveCO2Sensor, self).__init__(number, address, interface)
+        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoSwitch(DucoNode):

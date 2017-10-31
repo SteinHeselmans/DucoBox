@@ -1,13 +1,30 @@
 from unittest import TestCase
 try:
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock, patch, call
 except ImportError as err:
-    from mock import MagicMock, patch
+    from mock import MagicMock, patch, call
 
 import duco.ducobox as dut
 
 
 class TestDucoValveHumiditySensor(TestCase):
+
+    node_paraget_cmd = 'nodeparaget {device} {para}'
+
+    def nodeparaget_humidity(self, device):
+        return self.node_paraget_cmd.format(device=device, para=dut.HUMIDITY_PARAGET_ID)
+
+    def nodeparaget_temperature(self, device):
+        return self.node_paraget_cmd.format(device=device, para=dut.TEMPERATURE_PARAGET_ID)
+
+    def callback_execute_cmd_nodeparaget(self, cmd):
+        if cmd == self.nodeparaget_humidity(1):
+            with open('tests/cmd_paraget_humidity.txt') as cmdfile:
+                return cmdfile.read()
+        elif cmd == self.nodeparaget_temperature(1):
+            with open('tests/cmd_paraget_temperature.txt') as cmdfile:
+                return cmdfile.read()
+        return None
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_happy(self, itf_mock):
@@ -15,12 +32,14 @@ class TestDucoValveHumiditySensor(TestCase):
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
         sensor.bind(itf_mock_object)
 
-        with open('tests/cmd_paraget_humidity.txt') as cmdfile:
-            itf_mock_object.execute_command.return_value = cmdfile.read()
+        itf_mock_object.execute_command.side_effect = self.callback_execute_cmd_nodeparaget
         sensor.sample()
-        itf_mock_object.execute_command.assert_called_once_with('nodeparaget 1 75')
+        humidity_call = call(self.nodeparaget_humidity(1))
+        temperature_call = call(self.nodeparaget_temperature(1))
+        itf_mock_object.execute_command.assert_has_calls([humidity_call, temperature_call], any_order=True)
 
-        self.assertEqual(float(sensor.value), 62.35)
+        self.assertEqual(sensor.get_value(dut.HUMIDITY_STR), 62.35)
+        self.assertEqual(sensor.get_value(dut.TEMPERATURE_STR), 27.5)
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_no_values(self, itf_mock):
@@ -30,6 +49,9 @@ class TestDucoValveHumiditySensor(TestCase):
 
         itf_mock_object.execute_command.return_value = 'invalid command'
         sensor.sample()
-        itf_mock_object.execute_command.assert_called_once_with('nodeparaget 1 75')
+        humidity_call = call(self.nodeparaget_humidity(1))
+        temperature_call = call(self.nodeparaget_temperature(1))
+        itf_mock_object.execute_command.assert_has_calls([humidity_call, temperature_call], any_order=True)
 
-        self.assertEqual(sensor.value, None)
+        self.assertEqual(sensor.get_value(dut.HUMIDITY_STR), None)
+        self.assertEqual(sensor.get_value(dut.TEMPERATURE_STR), None)
