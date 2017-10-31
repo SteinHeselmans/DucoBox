@@ -7,7 +7,7 @@ except ImportError as err:
 import duco.ducobox as dut
 
 
-class TestDucoUserControlBoxHumiditySensor(TestCase):
+class TestDucoUserControlHumiditySensor(TestCase):
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_happy(self, itf_mock):
@@ -21,8 +21,8 @@ class TestDucoUserControlBoxHumiditySensor(TestCase):
         sensor.sample()
         itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
-        self.assertEqual(float(sensor.value), 68.37)
-        self.assertEqual(float(sensor.temperature), 18.9)
+        self.assertEqual(sensor.get_value(dut.HUMIDITY_STR), 68.37)
+        self.assertEqual(sensor.get_value(dut.TEMPERATURE_STR), 18.9)
 
     @patch('duco.ducobox.DucoInterface', autospec=True)
     def test_no_values(self, itf_mock):
@@ -35,5 +35,5 @@ class TestDucoUserControlBoxHumiditySensor(TestCase):
         sensor.sample()
         itf_mock_object.execute_command.assert_called_once_with('sensorinfo')
 
-        self.assertEqual(sensor.value, None)
-        self.assertEqual(sensor.temperature, None)
+        self.assertEqual(sensor.get_value(dut.HUMIDITY_STR), None)
+        self.assertEqual(sensor.get_value(dut.TEMPERATURE_STR), None)

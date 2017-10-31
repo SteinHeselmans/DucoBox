@@ -81,19 +81,9 @@ class TestDucoNode(TestCase):
     def test_sample(self):
         node = dut.DucoNode(111, 222)
         node.sample()
-        self.assertEqual(node.value, None)
-
-    @patch('duco.ducobox.DucoInterface', autospec=True)
-    def test_sample_no_values(self, itf_mock):
-        node = dut.DucoNode(111, 222)
-        itf_mock_object = MagicMock(spec=dut.DucoInterface)
-        node.bind(itf_mock_object)
-
-        itf_mock_object.execute_command.return_value = 'invalid command'
-        node.sample()
-        itf_mock_object.execute_command.assert_called_once_with('nodeparaget 111 0')
-
-        self.assertEqual(node.value, None)
+        self.assertEqual(node.get_value(dut.HUMIDITY_STR), None)
+        self.assertEqual(node.get_value(dut.CO2_STR), None)
+        self.assertEqual(node.get_value(dut.TEMPERATURE_STR), None)
 
     def test_stringify(self):
         node = dut.DucoNode(111, 222)

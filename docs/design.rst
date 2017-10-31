@@ -14,13 +14,24 @@ Class diagram
 
     @startuml
 
+    DucoNodeParameter <|-- DucoNodeParaGetParameter
+    DucoNodeParaGetParameter <|-- DucoNodeHumidityParaGet
+    DucoNodeParaGetParameter <|-- DucoNodeCO2ParaGet
+    DucoNodeParaGetParameter <|-- DucoNodeTemperatureParaGet
     DucoInterface "1" o-- "N" DucoNode
+    DucoNode "1" o-- "N" DucoNodeParameter
     DucoNode "1" o-- "1" DucoInterface
     DucoNode <|-- DucoBox
     DucoNode <|-- DucoBoxSensor
     DucoBoxSensor <|-- DucoBoxHumiditySensor
     DucoBoxSensor <|-- DucoBoxCO2Sensor
     DucoNode <|-- DucoUserControl
+
+    class DucoNodeParameter {
+        +__init__(name, unit, scaling)
+        +set_value(value)
+        +get_value()
+    }
 
     class DucoInterface {
         +__init__(port, cfgfile)
