@@ -1,1 +1,5 @@
-  some text --> 6235
+nodeparaget 1 75
+  Get PARA 75 of NODE 1
+  --> 6235
+  Done
+
