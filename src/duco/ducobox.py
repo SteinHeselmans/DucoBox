@@ -3,9 +3,9 @@
 
 import argparse
 try:
-    from configparser import ConfigParser, NoSectionError
+    from configparser import ConfigParser, NoSectionError, NoOptionError
 except ImportError:
-    from ConfigParser import ConfigParser, NoSectionError
+    from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 import sys
 import os
 import re
@@ -234,7 +234,7 @@ class DucoNode(object):
             self.address = cfgparser.get(section, 'address')
             self.blacklist = cfgparser.getboolean(section, 'blacklist')
             logging.info('Node {number} ({name}) found in network configuration file at address {address}'.format(number=self.number, name=self.name, address=self.address))
-        except NoSectionError:
+        except (NoSectionError, NoOptionError):
             logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
     def sample(self):
