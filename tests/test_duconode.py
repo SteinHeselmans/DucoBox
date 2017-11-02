@@ -49,6 +49,7 @@ class TestDucoNode(TestCase):
         cfgparser_mock_object.add_section.assert_called_once_with(section)
         cfgparser_mock_object.set.assert_any_call(section, 'number', '111')
         cfgparser_mock_object.set.assert_any_call(section, 'address', '222')
+        cfgparser_mock_object.set.assert_any_call(section, 'blacklist', False)
 
     def load_test_side_effect(*args, **kwargs):
         if args[2] == 'name':
@@ -57,6 +58,8 @@ class TestDucoNode(TestCase):
             return '888'
         elif args[2] == 'address':
             return '666'
+        elif args[2] == 'blacklist':
+            return True
         raise Exception('ConfigParser with unexpected argument')
 
     @patch('duco.ducobox.ConfigParser', autospec=True)
@@ -64,10 +67,12 @@ class TestDucoNode(TestCase):
         node = dut.DucoNode(111, 222)
         cfgparser_mock_object = MagicMock(spec=dut.ConfigParser)
         cfgparser_mock_object.get.side_effect = self.load_test_side_effect
+        cfgparser_mock_object.getboolean.side_effect = self.load_test_side_effect
         node._load(cfgparser_mock_object)
         self.assertEqual(node.name, 'mocked device for utest')
         self.assertEqual(int(node.number), 888)
         self.assertEqual(int(node.address), 666)
+        self.assertEqual(node.blacklist, True)
 
     @patch('duco.ducobox.ConfigParser', autospec=True)
     def test_load_fail(self, cfgparser_mock):
@@ -77,6 +82,7 @@ class TestDucoNode(TestCase):
         node._load(cfgparser_mock_object)
         self.assertEqual(int(node.number), 111)
         self.assertEqual(int(node.address), 222)
+        self.assertEqual(node.blacklist, False)
 
     def test_sample(self):
         node = dut.DucoNode(111, 222)
