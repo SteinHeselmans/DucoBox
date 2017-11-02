@@ -5,9 +5,9 @@ except ImportError as err:
     from mock import MagicMock, patch
 
 try:
-    from configparser import NoSectionError
+    from configparser import NoSectionError, NoOptionError
 except ImportError:
-    from ConfigParser import NoSectionError
+    from ConfigParser import NoSectionError, NoOptionError
 
 import duco.ducobox as dut
 
@@ -75,10 +75,20 @@ class TestDucoNode(TestCase):
         self.assertEqual(node.blacklist, True)
 
     @patch('duco.ducobox.ConfigParser', autospec=True)
-    def test_load_fail(self, cfgparser_mock):
+    def test_load_fail_no_section(self, cfgparser_mock):
         node = dut.DucoNode(111, 222)
         cfgparser_mock_object = MagicMock(spec=dut.ConfigParser)
         cfgparser_mock_object.get.side_effect = NoSectionError('some message for missing config parser section')
+        node._load(cfgparser_mock_object)
+        self.assertEqual(int(node.number), 111)
+        self.assertEqual(int(node.address), 222)
+        self.assertEqual(node.blacklist, False)
+
+    @patch('duco.ducobox.ConfigParser', autospec=True)
+    def test_load_fail_no_option(self, cfgparser_mock):
+        node = dut.DucoNode(111, 222)
+        cfgparser_mock_object = MagicMock(spec=dut.ConfigParser)
+        cfgparser_mock_object.get.side_effect = NoOptionError('blacklist', 'some message for missing config parser option')
         node._load(cfgparser_mock_object)
         self.assertEqual(int(node.number), 111)
         self.assertEqual(int(node.address), 222)
