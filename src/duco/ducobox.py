@@ -3,9 +3,9 @@
 
 import argparse
 try:
-    from configparser import ConfigParser, NoSectionError
+    from configparser import ConfigParser, NoSectionError, NoOptionError
 except ImportError:
-    from ConfigParser import ConfigParser, NoSectionError
+    from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 import sys
 import os
 import re
@@ -170,6 +170,7 @@ class DucoNode(object):
         self.number = str(number)
         self.address = str(address)
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
+        self.blacklist = False
         self.parameters = {}
         self.bind(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
@@ -217,6 +218,7 @@ class DucoNode(object):
         cfgparser.set(section, 'name', self.name)
         cfgparser.set(section, 'number', self.number)
         cfgparser.set(section, 'address', self.address)
+        cfgparser.set(section, 'blacklist', self.blacklist)
 
     def _load(self, cfgparser):
         '''
@@ -230,25 +232,33 @@ class DucoNode(object):
             self.name = cfgparser.get(section, 'name')
             self.number = cfgparser.get(section, 'number')
             self.address = cfgparser.get(section, 'address')
+            self.blacklist = cfgparser.getboolean(section, 'blacklist')
             logging.info('Node {number} ({name}) found in network configuration file at address {address}'.format(number=self.number, name=self.name, address=self.address))
-        except NoSectionError:
+        except (NoSectionError, NoOptionError):
             logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
     def sample(self):
         '''
         Take a sample from the DucoNode
         '''
-        if self.interface:
-            logging.info('  - {name}'.format(name=self.name))
-            for name in self.parameters:
-                parameter = self.parameters[name]
-                cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
-                reply = self.interface.execute_command(cmd)
-                value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
-                if value is not None:
-                    parameter.set_value(value)
-        else:
-            logging.error('No interface to duco')
+        if not self.blacklist:
+            if self.interface:
+                logging.info('  - {name}'.format(name=self.name))
+                self._perform_sample()
+            else:
+                logging.error('No interface to duco')
+
+    def _perform_sample(self):
+        '''
+        Take a sample from the DucoNode
+        '''
+        for name in self.parameters:
+            parameter = self.parameters[name]
+            cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
+            reply = self.interface.execute_command(cmd)
+            value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
+            if value is not None:
+                parameter.set_value(value)
 
     def get_value(self, parameter):
         '''
@@ -339,11 +349,10 @@ class DucoBox(DucoNode):
         else:
             logging.error('No interface to duco')
 
-    def sample(self):
+    def _perform_sample(self):
         '''
         Take a sample from the DucoBox
         '''
-        logging.info('  - {name}'.format(name=self.name))
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
@@ -386,25 +395,22 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
         self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
-    def sample(self):
+    def _perform_sample(self):
         '''
         Take a sample from the DucoUserControlHumiditySensor
         '''
-        if self.interface:
-            if self.interface.is_extended():
-                super(DucoUserControlHumiditySensor, self).sample()
-            else:
-                reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
-                humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
-                                             unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
-                if humidity:
-                    self.parameters[HUMIDITY_STR].set_value(humidity)
-                temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
-                                                'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
-                if temperature:
-                    self.parameters[TEMPERATURE_STR].set_value(temperature)
+        if self.interface.is_extended():
+            super(DucoUserControlHumiditySensor, self).sample()
         else:
-            logging.error('No interface to duco')
+            reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
+            humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
+                                         unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
+            if humidity:
+                self.parameters[HUMIDITY_STR].set_value(humidity)
+            temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
+                                            'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
+            if temperature:
+                self.parameters[TEMPERATURE_STR].set_value(temperature)
 
 
 class DucoUserControlCO2Sensor(DucoUserControl):
@@ -642,6 +648,9 @@ class DucoInterface(object):
                     self._live = True
 
     def sample(self):
+        '''
+        Take samples from all nodes in the network
+        '''
         if self.is_online():
             logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
             for node in self.nodes:
