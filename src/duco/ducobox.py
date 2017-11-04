@@ -487,6 +487,18 @@ class DucoGrille(DucoNode):
 
     KIND = 'CLIMA'
 
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a Grille inside a valve
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoGrille, self).__init__(number, address, interface)
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
+
 
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
