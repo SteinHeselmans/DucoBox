@@ -400,7 +400,7 @@ class DucoUserControlHumiditySensor(DucoUserControl):
         Take a sample from the DucoUserControlHumiditySensor
         '''
         if self.interface.is_extended():
-            super(DucoUserControlHumiditySensor, self).sample()
+            super(DucoUserControlHumiditySensor, self)._perform_sample()
         else:
             reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
             humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',

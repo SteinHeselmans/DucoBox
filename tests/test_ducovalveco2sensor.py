@@ -7,7 +7,7 @@ except ImportError as err:
 import duco.ducobox as dut
 
 
-class TestDucoValveCO2Sensor(TestCase):
+class TestDucoValveCO2SensorExtended(TestCase):
 
     node_paraget_cmd = 'nodeparaget {device} {para}'
 
