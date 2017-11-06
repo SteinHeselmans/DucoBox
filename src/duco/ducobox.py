@@ -155,6 +155,7 @@ class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
     KIND = None
+    SENSOR_INFO_COMMAND = 'sensorinfo'
     PARAGET_COMMAND = 'nodeparaget {node} {para}'
     PARAGET_REGEX = '-->\s*(?P<value>\d+)'
 
@@ -359,26 +360,25 @@ class DucoBox(DucoNode):
             self.parameters[FANSPEED_STR].set_value(speed)
 
 
-class DucoUserControl(DucoNode):
-    '''Class for a user control device inside the Duco box network'''
+class DucoNodeWithTemperature(DucoNode):
+    '''Class for a duco node with temperature sensing'''
 
-    KIND = 'UC'
-    SENSOR_INFO_COMMAND = 'sensorinfo'
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a temperature sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoNodeWithTemperature, self).__init__(number, address, interface)
+        self.temperature = None
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
-class DucoUserControlBattery(DucoUserControl):
-    '''Class for a user control with battery inside the Duco box network'''
-
-    KIND = 'UCBAT'
-
-
-class DucoUserControlHumiditySensor(DucoUserControl):
-    '''Class for a user control with a humidity sensor inside the Duco box network'''
-
-    KIND = 'UCRH'
-
-    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
-    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
+class DucoNodeWithHumidity(DucoNode):
+    '''Class for a duco node with humidity sensing'''
 
     def __init__(self, number, address, interface=None):
         '''
@@ -389,11 +389,47 @@ class DucoUserControlHumiditySensor(DucoUserControl):
             address (str): Address of the node within the network
             interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoUserControlHumiditySensor, self).__init__(number, address, interface)
+        super(DucoNodeWithHumidity, self).__init__(number, address, interface)
         self.humidity = None
-        self.temperature = None
         self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
-        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
+
+
+class DucoNodeWithCO2(DucoNode):
+    '''Class for a duco node with CO2 sensing'''
+
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a CO2 sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoNodeWithCO2, self).__init__(number, address, interface)
+        self.co2 = None
+        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
+
+
+class DucoUserControl(DucoNode):
+    '''Class for a user control device inside the Duco box network'''
+
+    KIND = 'UC'
+
+
+class DucoUserControlBattery(DucoUserControl):
+    '''Class for a user control with battery inside the Duco box network'''
+
+    KIND = 'UCBAT'
+
+
+class DucoUserControlHumiditySensor(DucoUserControl, DucoNodeWithHumidity, DucoNodeWithTemperature):
+    '''Class for a user control with a humidity sensor inside the Duco box network'''
+
+    KIND = 'UCRH'
+
+    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
+    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
 
     def _perform_sample(self):
         '''
@@ -413,23 +449,10 @@ class DucoUserControlHumiditySensor(DucoUserControl):
                 self.parameters[TEMPERATURE_STR].set_value(temperature)
 
 
-class DucoUserControlCO2Sensor(DucoUserControl):
+class DucoUserControlCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
     '''Class for a user control with a CO2 sensor inside the Duco box network'''
 
     KIND = 'UCCO2'
-
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a CO2 sensor inside the Duco box
-
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoUserControlCO2Sensor, self).__init__(number, address, interface)
-        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
-        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoValve(DucoNode):
@@ -438,42 +461,16 @@ class DucoValve(DucoNode):
     KIND = 'VLV'
 
 
-class DucoValveHumiditySensor(DucoValve):
+class DucoValveHumiditySensor(DucoNodeWithHumidity, DucoNodeWithTemperature):
     '''Class for a valve with a humidity sensor inside the Duco box network'''
 
     KIND = 'VLVRH'
 
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a humidity sensor inside a valve
 
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoValveHumiditySensor, self).__init__(number, address, interface)
-        self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
-        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
-
-
-class DucoValveCO2Sensor(DucoValve):
+class DucoValveCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
     '''Class for a valve with a CO2 sensor inside the Duco box network'''
 
     KIND = 'VLVCO2'
-
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a CO2 sensor inside a valve
-
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoValveCO2Sensor, self).__init__(number, address, interface)
-        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
-        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoSwitch(DucoNode):
@@ -482,22 +479,10 @@ class DucoSwitch(DucoNode):
     KIND = 'SWITCH'
 
 
-class DucoGrille(DucoNode):
+class DucoGrille(DucoNodeWithTemperature):
     '''Class for a 'Tronic' ventilation grille with motor and temperature sensor inside the Duco box network'''
 
     KIND = 'CLIMA'
-
-    def __init__(self, number, address, interface=None):
-        '''
-        Initializer for a Grille inside a valve
-
-        Args:
-            number (str): Number of the node in the network
-            address (str): Address of the node within the network
-            interface (DucoInterface): Interface object to use when executing commands
-        '''
-        super(DucoGrille, self).__init__(number, address, interface)
-        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
 class DucoInterface(object):
