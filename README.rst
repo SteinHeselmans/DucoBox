@@ -124,18 +124,6 @@ Content for /etc/udev/rules.d/50-ttyusb.rules
 
     reboot
 
------------
-Limitations
------------
-
-The main contributor to this project has a limited Duco ventilation system, with not too much devices:
-
-- DucoBox Silent
-- Humidity box sensor
-- Remote control on battery
-
-The python module was not tested on other devices, allthough some effort was done in order to support them.
-
 -----------------------
 Issues and new Features
 -----------------------
