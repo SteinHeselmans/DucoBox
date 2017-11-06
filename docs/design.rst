@@ -21,11 +21,33 @@ Class diagram
     DucoInterface "1" o-- "N" DucoNode
     DucoNode "1" o-- "N" DucoNodeParameter
     DucoNode "1" o-- "1" DucoInterface
+
     DucoNode <|-- DucoBox
-    DucoNode <|-- DucoBoxSensor
-    DucoBoxSensor <|-- DucoBoxHumiditySensor
-    DucoBoxSensor <|-- DucoBoxCO2Sensor
+
+    DucoNode <|-- DucoNodeWithTemperature
+    DucoNode <|-- DucoNodeWithHumidity
+    DucoNode <|-- DucoNodeWithCO2
+
     DucoNode <|-- DucoUserControl
+    DucoUserControl <|-- DucoUserControlBattery
+    DucoUserControl <|-- DucoUserControlHumiditySensor
+    DucoNodeWithTemperature <|-- DucoUserControlHumiditySensor
+    DucoNodeWithHumidity <|-- DucoUserControlHumiditySensor
+    DucoUserControl <|-- DucoUserControlCO2Sensor
+    DucoNodeWithTemperature <|-- DucoUserControlCO2Sensor
+    DucoNodeWithHumidity <|-- DucoUserControlCO2Sensor
+
+    DucoNode <|-- DucoValve
+    DucoValve <|-- DucoValveHumiditySensor
+    DucoNodeWithTemperature <|-- DucoValveHumiditySensor
+    DucoNodeWithHumidity <|-- DucoValveHumiditySensor
+    DucoValve <|-- DucoValveCO2Sensor
+    DucoNodeWithTemperature <|-- DucoValveCO2Sensor
+    DucoNodeWithCO2 <|-- DucoValveCO2Sensor
+
+    DucoNode <|-- DucoSwitch
+
+    DucoNodeWithTemperature <|-- DucoGrille
 
     class DucoNodeParameter {
         +__init__(name, unit, scaling)
@@ -57,22 +79,40 @@ Class diagram
         +__init__(number, address)
     }
 
-    class DucoBoxSensor {
-    }
-
-    class DucoBoxHumiditySensor {
-        +{static} KIND = 'UCRH'
-        +__init__(number, address)
-    }
-
-    class DucoBoxCO2Sensor {
-        +{static} KIND = 'UCCO2'
-        +__init__(number, address)
-    }
-
     class DucoUserControl {
+        +{static} KIND = 'UC'
+    }
+
+    class DucoUserControlBattery {
         +{static} KIND = 'UCBAT'
-        +__init__(number, address)
+    }
+
+    class DucoUserControlHumiditySensor {
+        +{static} KIND = 'UCRH'
+    }
+
+    class DucoUserControlCO2Sensor {
+        +{static} KIND = 'UCCO2'
+    }
+
+    class DucoValve {
+        +{static} KIND = 'VLV'
+    }
+
+    class DucoValveHumiditySensor {
+        +{static} KIND = 'VLVRH'
+    }
+
+    class DucoValveCO2Sensor {
+        +{static} KIND = 'VLVCO2'
+    }
+
+    class DucoSwitch {
+        +{static} KIND = 'SWITCH'
+    }
+
+    class DucoGrille {
+        +{static} KIND = 'CLIMA'
     }
 
     @enduml
