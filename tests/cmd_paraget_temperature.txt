@@ -1,0 +1,5 @@
+nodeparaget 1 73
+  Get PARA 73 of NODE 1
+  --> 275
+  Done
+

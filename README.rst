@@ -84,9 +84,13 @@ The script first tries to find all of the nodes in the network, by executing the
 objects for all of the found nodes. If nodes are found, the network configuration is saved to the provided
 network configuration file.
 
-The network configuration file gives an overview of all the nodes with their specific parameters. The *name* of
-every node can be adapted by the user, in order to easily recognize the nodes. The rest of the fields should not
-be adapted outside the script.
+The network configuration file gives an overview of all the nodes with their specific parameters. These fields
+can be adapted for each node:
+
+- *name*: convenience name for the node (any string)
+- *blacklist*: flag to blacklist (don't use this node) from the network (True, or False)
+
+The rest of the fields should not be adapted outside the script.
 
 -----
 Hints
@@ -119,18 +123,6 @@ Content for /etc/udev/rules.d/50-ttyusb.rules
 .. code-block:: bash
 
     reboot
-
------------
-Limitations
------------
-
-The main contributor to this project has a limited Duco ventilation system, with not too much devices:
-
-- DucoBox Silent
-- Humidity box sensor
-- Remote control on battery
-
-The python module was not tested on other devices, allthough some effort was done in order to support them.
 
 -----------------------
 Issues and new Features

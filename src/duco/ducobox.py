@@ -3,9 +3,9 @@
 
 import argparse
 try:
-    from configparser import ConfigParser, NoSectionError
+    from configparser import ConfigParser, NoSectionError, NoOptionError
 except ImportError:
-    from ConfigParser import ConfigParser, NoSectionError
+    from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 import sys
 import os
 import re
@@ -21,6 +21,25 @@ DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
 SERIAL_CHAR_INTERVAL = 0.1
 
+CO2_STR = 'CO2'
+HUMIDITY_STR = 'humidity'
+TEMPERATURE_STR = 'temperature'
+FANSPEED_STR = 'fanspeed'
+
+CO2_PARAGET_ID = 74
+HUMIDITY_PARAGET_ID = 75
+TEMPERATURE_PARAGET_ID = 73
+
+HUMIDITY_UNIT = '%'
+CO2_UNIT = 'ppm'
+TEMPERATURE_UNIT = 'degC'
+FANSPEED_UNIT = 'rpm'
+
+HUMIDITY_SCALING = 100.0
+CO2_SCALING = 1
+TEMPERATURE_SCALING = 10.0
+FANSPEED_SCALING = 1.0
+
 
 def set_logging_level(loglevel):
     '''
@@ -35,10 +54,110 @@ def set_logging_level(loglevel):
     logging.basicConfig(level=numeric_level, format='%(message)s')
 
 
+class DucoNodeParameter(object):
+    '''Class for holding a parameter for Duco Nodes'''
+
+    def __init__(self, name, unit='', scaling=1.0):
+        '''
+        Initializer for a node parameter
+
+        Args:
+            name (str): Name of the parameter
+            unit (str): Unit of the parameter
+            scaling (float): Dividing factor for rescaling parsed value
+        '''
+        self.name = name
+        self.unit = unit
+        self.scaling = float(scaling)
+        self.value = None
+
+    def set_value(self, value):
+        '''
+        Set the value for the node parameter
+
+        Args:
+            value (float): New value for the parameter
+        '''
+        self.value = float(value) / self.scaling
+        logging.info('    - {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
+
+    def get_value(self):
+        '''
+        Set the value for the node parameter
+
+        Returns:
+            Float value for the parameter, or None
+        '''
+        return self.value
+
+    def __str__(self):
+        '''
+        Convert duco node parameter to string
+
+        Returns:
+            str: String representation of the object
+        '''
+        return '{value} {unit}'.format(value=self.value, unit=self.unit, address=self.address)
+
+
+class DucoNodeFanSpeed(DucoNodeParameter):
+    '''Class for holding a fan speed parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a fan speed parameter'''
+        super(DucoNodeFanSpeed, self).__init__('fanspeed', FANSPEED_UNIT, FANSPEED_SCALING)
+
+
+class DucoNodeParaGetParameter(DucoNodeParameter):
+    '''Class for holding a parameter for Duco Nodes, that can be retrieved through the nodeparaget command'''
+
+    def __init__(self, name, unit, scaling, getter_id):
+        '''
+        Initializer for a node parameter
+
+        Args:
+            name (str): Name of the parameter
+            unit (str): Unit of the parameter
+            scaling (float): Dividing factor for rescaling parsed value
+            getter_id (int): Number to be used during the nodeparaget command as ID
+        '''
+        super(DucoNodeParaGetParameter, self).__init__(name, unit, scaling)
+        self.getter_id = int(getter_id)
+
+
+class DucoNodeHumidityParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a humidity-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a humidity parameter'''
+        super(DucoNodeHumidityParaGet, self).__init__('humidity', HUMIDITY_UNIT, HUMIDITY_SCALING,
+                                                      HUMIDITY_PARAGET_ID)
+
+
+class DucoNodeCO2ParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a CO2-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a CO2 parameter'''
+        super(DucoNodeCO2ParaGet, self).__init__('CO2', CO2_UNIT, CO2_SCALING, CO2_PARAGET_ID)
+
+
+class DucoNodeTemperatureParaGet(DucoNodeParaGetParameter):
+    '''Class for holding a temperature-paraget parameter for Duco Nodes'''
+
+    def __init__(self):
+        '''Initializer for a temperature parameter'''
+        super(DucoNodeTemperatureParaGet, self).__init__('temperature', TEMPERATURE_UNIT, TEMPERATURE_SCALING,
+                                                         TEMPERATURE_PARAGET_ID)
+
+
 class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
     KIND = None
+    SENSOR_INFO_COMMAND = 'sensorinfo'
+    PARAGET_COMMAND = 'nodeparaget {node} {para}'
+    PARAGET_REGEX = '-->\s*(?P<value>\d+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -52,6 +171,8 @@ class DucoNode(object):
         self.number = str(number)
         self.address = str(address)
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
+        self.blacklist = False
+        self.parameters = {}
         self.bind(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
@@ -98,6 +219,7 @@ class DucoNode(object):
         cfgparser.set(section, 'name', self.name)
         cfgparser.set(section, 'number', self.number)
         cfgparser.set(section, 'address', self.address)
+        cfgparser.set(section, 'blacklist', self.blacklist)
 
     def _load(self, cfgparser):
         '''
@@ -111,15 +233,44 @@ class DucoNode(object):
             self.name = cfgparser.get(section, 'name')
             self.number = cfgparser.get(section, 'number')
             self.address = cfgparser.get(section, 'address')
+            self.blacklist = cfgparser.getboolean(section, 'blacklist')
             logging.info('Node {number} ({name}) found in network configuration file at address {address}'.format(number=self.number, name=self.name, address=self.address))
-        except NoSectionError:
+        except (NoSectionError, NoOptionError):
             logging.info('Node {number} not found in network configuration file, adding...'.format(number=self.number))
 
     def sample(self):
         '''
         Take a sample from the DucoNode
         '''
-        pass
+        if not self.blacklist:
+            if self.interface:
+                logging.info('  - {name}'.format(name=self.name))
+                self._perform_sample()
+            else:
+                logging.error('No interface to duco')
+
+    def _perform_sample(self):
+        '''
+        Take a sample from the DucoNode
+        '''
+        for name in self.parameters:
+            parameter = self.parameters[name]
+            cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
+            reply = self.interface.execute_command(cmd)
+            value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
+            if value is not None:
+                parameter.set_value(value)
+
+    def get_value(self, parameter):
+        '''
+        Get value for parameter
+
+        Args:
+            parameter (str): String for the name of the parameter to get
+        '''
+        if parameter in self.parameters:
+            return self.parameters[parameter].get_value()
+        return None
 
     def __str__(self):
         '''
@@ -130,16 +281,15 @@ class DucoNode(object):
         '''
         return '{name} ({number}) @ {address}'.format(name=self.name, number=self.number, address=self.address)
 
-    def _parse_reply(self, reply, msg, regex, group, factor=None, unit=''):
+    def _parse_reply(self, reply, regex, group, scaling=None, unit=''):
         '''
         Parse the reply on a command
 
         Args:
             reply (str): The reply from the duco interface on your command
-            msg (str): Message of the information to be printed
             regex (str): Regular expression to get the data from the reply
             group (str): Named group within the regex to get the data from the reply
-            factor (float): Dividing factor for rescaling parsed value
+            scaling (float): Dividing factor for rescaling parsed value
             unit (str): Unit of the sampled information
 
         Returns:
@@ -147,12 +297,7 @@ class DucoNode(object):
         '''
         match = re.compile(regex).search(reply)
         if match:
-            value = match.group(group)
-            if value:
-                if factor:
-                    value = float(value) / factor
-                logging.info('- {msg}: {value} {unit}'.format(msg=msg, value=value, unit=unit))
-                return str(value)
+            return match.group(group)
         return None
 
 
@@ -180,8 +325,7 @@ class DucoBox(DucoNode):
             interface (DucoInterface): Interface object to use when executing commands
         '''
         super(DucoBox, self).__init__(number, address, interface)
-        self.fanspeed = None
-        self.fanspeed_act = None
+        self.parameters[FANSPEED_STR] = DucoNodeFanSpeed()
         self.boot_software = None
         self.serial = None
         self.board_name = None
@@ -196,45 +340,45 @@ class DucoBox(DucoNode):
         if self.interface:
             logging.info('Getting board information...')
             reply = self.interface.execute_command(self.BOARD_INFO_COMMAND)
-            self.boot_software = self._parse_reply(reply, 'software version', self.MATCH_BOOT_SOFTWARE, 'bootsw')
-            self.serial = self._parse_reply(reply, 'serial number', self.MATCH_SERIAL, 'serial')
-            self.board_name = self._parse_reply(reply, 'board name', self.MATCH_BOARD_NAME, 'board')
-            self.board_type = self._parse_reply(reply, 'board type', self.MATCH_BOARD_TYPE, 'type')
-            self.device_id = self._parse_reply(reply, 'device ID', self.MATCH_DEVICE_ID, 'deviceid')
+            self.boot_software = self._parse_reply(reply, self.MATCH_BOOT_SOFTWARE, 'bootsw')
+            self.serial = self._parse_reply(reply, self.MATCH_SERIAL, 'serial')
+            self.board_name = self._parse_reply(reply, self.MATCH_BOARD_NAME, 'board')
+            self.board_type = self._parse_reply(reply, self.MATCH_BOARD_TYPE, 'type')
+            self.device_id = self._parse_reply(reply, self.MATCH_DEVICE_ID, 'deviceid')
+            if self.board_name and "BASIC" not in self.board_name:
+                self.interface.set_extended()
+        else:
+            logging.error('No interface to duco')
 
-    def sample(self):
+    def _perform_sample(self):
         '''
         Take a sample from the DucoBox
         '''
-        super(DucoBox, self).sample()
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
-        speed = self._parse_reply(reply, 'fan speed (filtered)', self.MATCH_FAN_SPEED, 'filtered', unit='rpm')
+        speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
         if speed:
-            self.fanspeed = int(speed)
-        speed = self._parse_reply(reply, 'fan speed (actual)', self.MATCH_FAN_SPEED, 'actual', unit='rpm')
-        if speed:
-            self.fanspeed_act = int(speed)
+            self.parameters[FANSPEED_STR].set_value(speed)
 
 
-class DucoUserControl(DucoNode):
-    '''Class for a user control device inside the Duco box network'''
+class DucoNodeWithTemperature(DucoNode):
+    '''Class for a duco node with temperature sensing'''
 
-    KIND = 'UC'
-    SENSOR_INFO_COMMAND = 'sensorinfo'
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a temperature sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoNodeWithTemperature, self).__init__(number, address, interface)
+        self.temperature = None
+        self.parameters[TEMPERATURE_STR] = DucoNodeTemperatureParaGet()
 
 
-class DucoUserControlBattery(DucoUserControl):
-    '''Class for a user control with battery inside the Duco box network'''
-
-    KIND = 'UCBAT'
-
-
-class DucoUserControlHumiditySensor(DucoUserControl):
-    '''Class for a user control with a humidity sensor inside the Duco box network'''
-
-    KIND = 'UCRH'
-    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
-    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
+class DucoNodeWithHumidity(DucoNode):
+    '''Class for a duco node with humidity sensing'''
 
     def __init__(self, number, address, interface=None):
         '''
@@ -245,25 +389,67 @@ class DucoUserControlHumiditySensor(DucoUserControl):
             address (str): Address of the node within the network
             interface (DucoInterface): Interface object to use when executing commands
         '''
-        super(DucoUserControlHumiditySensor, self).__init__(number, address, interface)
+        super(DucoNodeWithHumidity, self).__init__(number, address, interface)
         self.humidity = None
-        self.temperature = None
+        self.parameters[HUMIDITY_STR] = DucoNodeHumidityParaGet()
 
-    def sample(self):
+
+class DucoNodeWithCO2(DucoNode):
+    '''Class for a duco node with CO2 sensing'''
+
+    def __init__(self, number, address, interface=None):
+        '''
+        Initializer for a CO2 sensor inside the Duco box
+
+        Args:
+            number (str): Number of the node in the network
+            address (str): Address of the node within the network
+            interface (DucoInterface): Interface object to use when executing commands
+        '''
+        super(DucoNodeWithCO2, self).__init__(number, address, interface)
+        self.co2 = None
+        self.parameters[CO2_STR] = DucoNodeCO2ParaGet()
+
+
+class DucoUserControl(DucoNode):
+    '''Class for a user control device inside the Duco box network'''
+
+    KIND = 'UC'
+
+
+class DucoUserControlBattery(DucoUserControl):
+    '''Class for a user control with battery inside the Duco box network'''
+
+    KIND = 'UCBAT'
+
+
+class DucoUserControlHumiditySensor(DucoUserControl, DucoNodeWithHumidity, DucoNodeWithTemperature):
+    '''Class for a user control with a humidity sensor inside the Duco box network'''
+
+    KIND = 'UCRH'
+
+    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
+    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
+
+    def _perform_sample(self):
         '''
         Take a sample from the DucoUserControlHumiditySensor
         '''
-        super(DucoUserControlHumiditySensor, self).sample()
-        reply = self.interface.execute_command(DucoUserControlHumiditySensor.SENSOR_INFO_COMMAND)
-        humidity = self._parse_reply(reply, 'humidity', self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity', unit='%', factor=100.0)
-        if humidity:
-            self.humidity = humidity
-        temperature = self._parse_reply(reply, 'temperature', self.MATCH_SENSOR_INFO_TEMPERATURE, 'temperature', unit='degC', factor=10.0)
-        if temperature:
-            self.temperature = temperature
+        if self.interface.is_extended():
+            super(DucoUserControlHumiditySensor, self)._perform_sample()
+        else:
+            reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
+            humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
+                                         unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
+            if humidity:
+                self.parameters[HUMIDITY_STR].set_value(humidity)
+            temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
+                                            'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
+            if temperature:
+                self.parameters[TEMPERATURE_STR].set_value(temperature)
 
 
-class DucoUserControlCO2Sensor(DucoUserControl):
+class DucoUserControlCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
     '''Class for a user control with a CO2 sensor inside the Duco box network'''
 
     KIND = 'UCCO2'
@@ -275,13 +461,13 @@ class DucoValve(DucoNode):
     KIND = 'VLV'
 
 
-class DucoValveHumiditySensor(DucoValve):
+class DucoValveHumiditySensor(DucoNodeWithHumidity, DucoNodeWithTemperature):
     '''Class for a valve with a humidity sensor inside the Duco box network'''
 
     KIND = 'VLVRH'
 
 
-class DucoValveCO2Sensor(DucoValve):
+class DucoValveCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
     '''Class for a valve with a CO2 sensor inside the Duco box network'''
 
     KIND = 'VLVCO2'
@@ -293,7 +479,7 @@ class DucoSwitch(DucoNode):
     KIND = 'SWITCH'
 
 
-class DucoGrille(DucoNode):
+class DucoGrille(DucoNodeWithTemperature):
     '''Class for a 'Tronic' ventilation grille with motor and temperature sensor inside the Duco box network'''
 
     KIND = 'CLIMA'
@@ -319,6 +505,7 @@ class DucoInterface(object):
         self.bind(port)
         self.cfgfile = cfgfile
         self._live = False
+        self._extended = False
 
     def is_online(self):
         '''
@@ -330,6 +517,26 @@ class DucoInterface(object):
         if self._live:
             return True
         return False
+
+    def is_extended(self):
+        '''
+        Check if the the attached interface is extended
+
+        Returns:
+            True if the interface is extended, false otherwise
+        '''
+        return self._extended
+
+    def set_extended(self, extended=True):
+        '''
+        Mark the attached interface to be extended
+
+        Extended interface means the nodeparalist command (and friends) are available
+
+        Args:
+            extended (bool): True if the interface is extended
+        '''
+        self._extended = extended
 
     def store(self):
         '''
@@ -380,17 +587,21 @@ class DucoInterface(object):
             str: Received answer
         '''
         logging.debug('Serial command:\n{command}'.format(command=command))
-        self._serial.write('\r')
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.readline()
-        cmd = command.encode('utf-8')
-        for c in cmd:
+        reply = ''
+        if self._serial:
+            self._serial.write('\r')
             time.sleep(SERIAL_CHAR_INTERVAL)
-            self._serial.write(c)
-        time.sleep(SERIAL_CHAR_INTERVAL)
-        self._serial.write('\r')
-        reply = str(self._serial.readline()).replace('\r', '\n')
-        logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+            self._serial.readline()
+            cmd = command.encode('utf-8')
+            for c in cmd:
+                time.sleep(SERIAL_CHAR_INTERVAL)
+                self._serial.write(c)
+            time.sleep(SERIAL_CHAR_INTERVAL)
+            self._serial.write('\r')
+            reply = str(self._serial.readline()).replace('\r', '\n')
+            logging.debug('Serial reply:\n{reply}'.format(reply=reply))
+        else:
+            logging.warning('No serial device')
         return reply
 
     def add_node(self, kind, number, address):
@@ -434,6 +645,9 @@ class DucoInterface(object):
                     self._live = True
 
     def sample(self):
+        '''
+        Take samples from all nodes in the network
+        '''
         if self.is_online():
             logging.info('Taking sample {t}'.format(t=time.strftime("%c")))
             for node in self.nodes:
