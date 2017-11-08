@@ -19,7 +19,7 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.
 
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
-SERIAL_CHAR_INTERVAL = 0.1
+SERIAL_CHAR_INTERVAL = 0.001
 
 CO2_STR = 'CO2'
 HUMIDITY_STR = 'humidity'
@@ -572,7 +572,7 @@ class DucoInterface(object):
             port (str): Name of the serial port
         '''
         try:
-            self._serial = Serial(port=port, baudrate=115200, timeout=1)
+            self._serial = Serial(port=port, baudrate=115200, timeout=0.1)
         except SerialException:
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
         logging.info('Opened serial port {port}'.format(port=port))
