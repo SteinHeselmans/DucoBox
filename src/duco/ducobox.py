@@ -682,7 +682,7 @@ def ducobox_wrapper(args):
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('-l', '--loglevel', type=str, dest='loglevel', default=DEFAULT_LOGLEVEL,
                         action='store', required=False,
-                        help='Interval in between samples [seconds]')
+                        help='Level for logging (error, warning, debug, info)')
     parser.add_argument('-i', '--interval', type=float, dest='interval', default=DEFAULT_INTERVAL,
                         action='store', required=False,
                         help='Level for logging (strings from logging python package)')
