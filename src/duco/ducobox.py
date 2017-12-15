@@ -264,7 +264,6 @@ class DucoNode(object):
             value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
             self.set_value(name, value)
 
-
     def set_value(self, parameter, value):
         '''
         Store a sample datapoint in database
@@ -607,16 +606,20 @@ class DucoInterface(object):
             measurement (str): Parameter to store
             value (float): Scaled value to store in database
         '''
-        json_data = [{
-            "measurement": measurement,
-            "tags": {
-                "node": node.number,
-                "name": node.name,
-                },
-            "fields": {
-                "value": value
-                }
-            }]
+        json_data = [
+            {
+                "measurement": measurement,
+                "tags":
+                    {
+                        "node": node.number,
+                        "name": node.name,
+                    },
+                "fields":
+                    {
+                        "value": value
+                    }
+            }
+        ]
         self.database.write_points(json_data)
 
     def execute_command(self, command):

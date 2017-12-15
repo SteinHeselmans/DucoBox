@@ -5,7 +5,7 @@
 .. image:: https://badge.fury.io/py/duco.ducobox.svg
     :target: https://badge.fury.io/py/duco.ducobox
     :alt: Pypi packaged release
-    
+
 .. image:: https://travis-ci.org/SteinHeselmans/DucoBox.svg?branch=master
     :target: https://travis-ci.org/SteinHeselmans/DucoBox
     :alt: Build status
@@ -146,7 +146,6 @@ Installation:
 
     apt-get install grafana
 
------------------------
 -----------------------
 Issues and new Features
 -----------------------

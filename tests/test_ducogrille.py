@@ -28,7 +28,7 @@ class TestDucoGrilleExtended(TestCase):
     def test_happy(self, itf_mock):
         sensor = dut.DucoGrille(1, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
-        sensor.bind(itf_mock_object)
+        sensor.bind_serial(itf_mock_object)
 
         itf_mock_object.execute_command.side_effect = self.callback_execute_cmd_nodeparaget
         sensor.sample()
@@ -41,7 +41,7 @@ class TestDucoGrilleExtended(TestCase):
     def test_no_values(self, itf_mock):
         sensor = dut.DucoGrille(255, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
-        sensor.bind(itf_mock_object)
+        sensor.bind_serial(itf_mock_object)
 
         itf_mock_object.execute_command.side_effect = self.callback_execute_cmd_nodeparaget
         sensor.sample()
