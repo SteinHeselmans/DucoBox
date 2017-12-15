@@ -128,6 +128,25 @@ Content for /etc/udev/rules.d/50-ttyusb.rules
 
     reboot
 
+InfluxDB
+========
+
+Installation:
+
+.. code-block:: bash
+
+    apt-get install influxdb
+
+Grafana
+=======
+
+Installation:
+
+.. code-block:: bash
+
+    apt-get install grafana
+
+-----------------------
 -----------------------
 Issues and new Features
 -----------------------

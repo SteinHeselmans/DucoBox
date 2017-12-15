@@ -16,7 +16,7 @@ def read(*names, **kwargs):
     ).read()
 
 
-requires = ['setuptools-scm', 'pyserial']
+requires = ['setuptools-scm', 'pyserial', 'influxdb']
 
 setup(
     name='duco.ducobox',

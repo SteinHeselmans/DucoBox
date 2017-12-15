@@ -12,6 +12,7 @@ import re
 import logging
 import time
 from serial import Serial, SerialException
+from influxdb import InfluxDBClient
 
 # Get version from file
 __version__ = 'unknown'
@@ -173,10 +174,10 @@ class DucoNode(object):
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
         self.blacklist = False
         self.parameters = {}
-        self.bind(interface)
+        self.bind_serial(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
-    def bind(self, interface):
+    def bind_serial(self, interface):
         '''
         Bind the DucoNode to an interface
 
@@ -502,7 +503,8 @@ class DucoInterface(object):
         logging.info('Welcome to Duco Interface')
         self._serial = None
         self.nodes = []
-        self.bind(port)
+        self.bind_serial(port)
+        self.bind_database()
         self.cfgfile = cfgfile
         self._live = False
         self._extended = False
@@ -564,7 +566,7 @@ class DucoInterface(object):
             node._load(cfgparser)
         logging.debug('Load finished')
 
-    def bind(self, port):
+    def bind_serial(self, port):
         '''
         Bind serial port: configure and open serial port at 115200 in 8N1 mode
 
@@ -576,6 +578,13 @@ class DucoInterface(object):
         except SerialException:
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
         logging.info('Opened serial port {port}'.format(port=port))
+
+    def bind_database(self):
+        '''
+        Bind to the database for logging sample data
+        '''
+        self.database = InfluxDBClient('localhost', 8086, 'root', 'root', 'ducobox-example')
+        self.database.create_database('ducobox-example')
 
     def execute_command(self, command):
         '''
