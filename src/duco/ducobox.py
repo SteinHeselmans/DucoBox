@@ -78,9 +78,12 @@ class DucoNodeParameter(object):
 
         Args:
             value (float): New value for the parameter
+        Returns:
+            float: Scaled floating point value for the given value
         '''
         self.value = float(value) / self.scaling
         logging.info('    - {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
+        return self.value
 
     def get_value(self):
         '''
@@ -252,15 +255,27 @@ class DucoNode(object):
 
     def _perform_sample(self):
         '''
-        Take a sample from the DucoNode
+        Take a sample from the DucoNode and store it
         '''
         for name in self.parameters:
             parameter = self.parameters[name]
             cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
             reply = self.interface.execute_command(cmd)
             value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
-            if value is not None:
-                parameter.set_value(value)
+            self.set_value(name, value)
+
+
+    def set_value(self, parameter, value):
+        '''
+        Store a sample datapoint in database
+
+        Args:
+            parameter (str): Type of measurement performed
+            value (str): Value for the datapoint
+        '''
+        if value is not None and parameter in self.parameters:
+            scaled = self.parameters[parameter].set_value(value)
+            self.interface.store_sample(self, parameter, scaled)
 
     def get_value(self, parameter):
         '''
@@ -357,8 +372,7 @@ class DucoBox(DucoNode):
         '''
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
-        if speed:
-            self.parameters[FANSPEED_STR].set_value(speed)
+        self.set_value(FANSPEED_STR, speed)
 
 
 class DucoNodeWithTemperature(DucoNode):
@@ -442,12 +456,10 @@ class DucoUserControlHumiditySensor(DucoUserControl, DucoNodeWithHumidity, DucoN
             reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
             humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
                                          unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
-            if humidity:
-                self.parameters[HUMIDITY_STR].set_value(humidity)
+            self.set_value(HUMIDITY_STR, humidity)
             temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
                                             'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
-            if temperature:
-                self.parameters[TEMPERATURE_STR].set_value(temperature)
+            self.set_value(TEMPERATURE_STR, temperature)
 
 
 class DucoUserControlCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
@@ -585,6 +597,27 @@ class DucoInterface(object):
         '''
         self.database = InfluxDBClient('localhost', 8086, 'root', 'root', 'ducobox-example')
         self.database.create_database('ducobox-example')
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        json_data = [{
+            "measurement": measurement,
+            "tags": {
+                "node": node.number,
+                "name": node.name,
+                },
+            "fields": {
+                "value": value
+                }
+            }]
+        self.database.write_points(json_data)
 
     def execute_command(self, command):
         '''
