@@ -497,6 +497,73 @@ class DucoGrille(DucoNodeWithTemperature):
     KIND = 'CLIMA'
 
 
+class DucoDatabase(object):
+    '''
+    Class for a generic database where we want to store the samples from our ducobox
+    '''
+
+    def __init__(self):
+        pass
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        pass
+
+
+class InfluxDb(DucoDatabase):
+    '''
+    Class for the InfluxDB database where we want to store the samples from our ducobox
+    '''
+
+    def __init__(self, url, port, user, password, dbname):
+        '''
+        Create a connection (and initialize) the influxDB database
+
+        Args:
+            url (str): URL of the influxDB server
+            port (str): Port of the influxDB server
+            user (str): Username for the influxDB server
+            password (str): Password for the user
+            dbname (str): Name of the influxDB to write to
+        '''
+        super(InfluxDb, self).__init__()
+        self.database = InfluxDBClient(url, port, user, password, dbname)
+        self.database.create_database(dbname)
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        super(InfluxDb, self).store_sample()
+        json_data = [
+            {
+                "measurement": measurement,
+                "tags":
+                    {
+                        "node": node.number,
+                        "name": node.name,
+                    },
+                "fields":
+                    {
+                        "value": value
+                    }
+            }
+        ]
+        self.database.write_points(json_data)
+
+
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
@@ -515,7 +582,6 @@ class DucoInterface(object):
         self._serial = None
         self.nodes = []
         self.bind_serial(port)
-        self.bind_database()
         self.cfgfile = cfgfile
         self._live = False
         self._extended = False
@@ -590,12 +656,14 @@ class DucoInterface(object):
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
         logging.info('Opened serial port {port}'.format(port=port))
 
-    def bind_database(self):
+    def bind_database(self, db):
         '''
         Bind to the database for logging sample data
+
+        Args:
+        - db (DucoDatabase): Database object to bind to
         '''
-        self.database = InfluxDBClient('localhost', 8086, 'root', 'root', 'ducobox-example')
-        self.database.create_database('ducobox-example')
+        self.database = db
 
     def store_sample(self, node, measurement, value):
         '''
@@ -606,21 +674,7 @@ class DucoInterface(object):
             measurement (str): Parameter to store
             value (float): Scaled value to store in database
         '''
-        json_data = [
-            {
-                "measurement": measurement,
-                "tags":
-                    {
-                        "node": node.number,
-                        "name": node.name,
-                    },
-                "fields":
-                    {
-                        "value": value
-                    }
-            }
-        ]
-        self.database.write_points(json_data)
+        self.database.store_sample(node, measurement, value)
 
     def execute_command(self, command):
         '''
@@ -737,11 +791,19 @@ def ducobox_wrapper(args):
     parser.add_argument('-n', '--network', type=str, dest='network',
                         help='File where the network configuration is stored',
                         default='duco_network.ini', action='store',)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--influxdb', type=str, dest='influxdb',
+                       help='Name of the influxdb database to write to',
+                       default=None, action='store',)
     args = parser.parse_args(args)
 
     set_logging_level(args.loglevel)
 
     itf = DucoInterface(port=args.port, cfgfile=args.network)
+
+    if args.influxdb is not None:
+        db = InfluxDb('localhost', 8086, 'root', 'root', 'ducobox-example')
+        itf.bind_database(db)
 
     itf.find_nodes()
 
