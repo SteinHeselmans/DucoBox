@@ -522,7 +522,29 @@ class InfluxDb(DucoDatabase):
     Class for the InfluxDB database where we want to store the samples from our ducobox
     '''
 
-    def __init__(self, url, port, user, password, dbname):
+    def __init__(self, cfgfile):
+        '''
+        Create a connection (and initialize) the influxDB database
+
+        Args:
+            cfgfile (str): Configuration file for connection to influxdb
+        '''
+        super(InfluxDb, self).__init__()
+        try:
+            cfgparser = ConfigParser()
+            cfgparser.read(cfgfile)
+            section = 'InfluxDB'
+            url = cfgparser.get(section, 'url')
+            port = cfgparser.get(section, 'port')
+            user = cfgparser.get(section, 'user')
+            password = cfgparser.get(section, 'password')
+            dbname = cfgparser.get(section, 'database')
+            logging.info('InfluxDB connection to {url}:{port}, {name}'.format(url=url, port=port, name=dbname))
+            self.configure(url, port, user, password, dbname)
+        except (NoSectionError, NoOptionError):
+            logging.warning('InfluxDB configuration file incomplete')
+
+    def configure(self, url, port, user, password, dbname):
         '''
         Create a connection (and initialize) the influxDB database
 
@@ -793,7 +815,7 @@ def ducobox_wrapper(args):
                         default='duco_network.ini', action='store',)
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--influxdb', type=str, dest='influxdb',
-                       help='Name of the influxdb database to write to',
+                       help='Configuration file of the influxdb database to write to',
                        default=None, action='store',)
     args = parser.parse_args(args)
 
@@ -802,8 +824,7 @@ def ducobox_wrapper(args):
     itf = DucoInterface(port=args.port, cfgfile=args.network)
 
     if args.influxdb is not None:
-        db = InfluxDb('localhost', 8086, 'root', 'root', 'ducobox-example')
-        itf.bind_database(db)
+        itf.bind_database(InfluxDb(args.influxdb))
 
     itf.find_nodes()
 

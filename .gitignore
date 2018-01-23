@@ -97,4 +97,4 @@ pip-selfcheck.json
 
 # Project stuff
 duco_network.ini
-
+influxdb.ini
