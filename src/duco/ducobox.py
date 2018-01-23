@@ -546,7 +546,7 @@ class InfluxDb(DucoDatabase):
             measurement (str): Parameter to store
             value (float): Scaled value to store in database
         '''
-        super(InfluxDb, self).store_sample()
+        super(InfluxDb, self).store_sample(node, measurement, value)
         json_data = [
             {
                 "measurement": measurement,
