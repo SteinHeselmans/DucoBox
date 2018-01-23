@@ -542,7 +542,7 @@ class InfluxDb(DucoDatabase):
             logging.info('InfluxDB connection to {url}:{port}, {name}'.format(url=url, port=port, name=dbname))
             self.configure(url, port, user, password, dbname)
         except (NoSectionError, NoOptionError):
-            logging.warning('InfluxDB configuration file incomplete')
+            logging.warning('InfluxDB configuration file {file} incomplete'.format(file=cfgfile))
 
     def configure(self, url, port, user, password, dbname):
         '''
