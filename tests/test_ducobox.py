@@ -13,7 +13,7 @@ class TestDucoBox(TestCase):
     def test_happy(self, itf_mock):
         box = dut.DucoBox(1, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
-        box.bind(itf_mock_object)
+        box.bind_serial(itf_mock_object)
 
         with open('tests/cmd_fanspeed.txt') as cmdfile:
             itf_mock_object.execute_command.return_value = cmdfile.read()
@@ -26,7 +26,7 @@ class TestDucoBox(TestCase):
     def test_no_values(self, itf_mock):
         box = dut.DucoBox(1, 2)
         itf_mock_object = MagicMock(spec=dut.DucoInterface)
-        box.bind(itf_mock_object)
+        box.bind_serial(itf_mock_object)
 
         itf_mock_object.execute_command.return_value = 'invalid command'
         box.sample()

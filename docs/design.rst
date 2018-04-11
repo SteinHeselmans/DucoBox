@@ -19,6 +19,7 @@ Class diagram
     DucoNodeParaGetParameter <|-- DucoNodeCO2ParaGet
     DucoNodeParaGetParameter <|-- DucoNodeTemperatureParaGet
     DucoInterface "1" o-- "N" DucoNode
+    DucoInterface "1" o-- "1" DucoDatabase
     DucoNode "1" o-- "N" DucoNodeParameter
     DucoNode "1" o-- "1" DucoInterface
 
@@ -49,6 +50,8 @@ Class diagram
 
     DucoNodeWithTemperature <|-- DucoGrille
 
+    DucoDatabase <|-- InfluxDb
+
     class DucoNodeParameter {
         +__init__(name, unit, scaling)
         +set_value(value)
@@ -64,6 +67,15 @@ Class diagram
         +load()
         +store()
         +sample()
+    }
+
+    class DucoDatabase {
+        +__init__()
+        +store_sample(node, measurement, value)
+    }
+
+    class InfluxDb {
+        +__init__(url, port, user, password, dbname)
     }
 
     class DucoNode {

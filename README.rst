@@ -5,7 +5,7 @@
 .. image:: https://badge.fury.io/py/duco.ducobox.svg
     :target: https://badge.fury.io/py/duco.ducobox
     :alt: Pypi packaged release
-    
+
 .. image:: https://travis-ci.org/SteinHeselmans/DucoBox.svg?branch=master
     :target: https://travis-ci.org/SteinHeselmans/DucoBox
     :alt: Build status
@@ -96,6 +96,33 @@ can be adapted for each node:
 
 The rest of the fields should not be adapted outside the script.
 
+------------
+Logging data
+------------
+
+The script can log the sampled data to a database.
+
+InfluxDB
+========
+
+Data can be logged to an influxDB server, by passing a configuration file to the **--influxdb** option of the script.
+
+Format of this configuration file through an example:
+
+.. code-block::
+
+    [InfluxDB]
+    url = localhost
+    port = 8086
+    user = root
+    password = root
+    database = ducobox-example
+
+Other databases
+===============
+
+The script is setup in a generic way, so adding more kinds of databases should be easy.
+
 -----
 Hints
 -----
@@ -127,6 +154,12 @@ Content for /etc/udev/rules.d/50-ttyusb.rules
 .. code-block:: bash
 
     reboot
+
+InfluxDB and Grafana
+====================
+
+The script was in first place designed to log sample data to an InfluxDB server. Grafana can
+be used as a frontend to create views on the InfluxDB data.
 
 -----------------------
 Issues and new Features

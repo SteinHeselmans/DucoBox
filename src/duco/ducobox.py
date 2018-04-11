@@ -12,6 +12,7 @@ import re
 import logging
 import time
 from serial import Serial, SerialException
+from influxdb import InfluxDBClient
 
 # Get version from file
 __version__ = 'unknown'
@@ -77,9 +78,12 @@ class DucoNodeParameter(object):
 
         Args:
             value (float): New value for the parameter
+        Returns:
+            float: Scaled floating point value for the given value
         '''
         self.value = float(value) / self.scaling
         logging.info('    - {msg}: {value} {unit}'.format(msg=self.name, value=self.value, unit=self.unit))
+        return self.value
 
     def get_value(self):
         '''
@@ -173,10 +177,10 @@ class DucoNode(object):
         self.name = 'My {classname}'.format(classname=self.__class__.__name__)
         self.blacklist = False
         self.parameters = {}
-        self.bind(interface)
+        self.bind_serial(interface)
         logging.info('Found node {node} at {address} ({name})'.format(node=self.number, address=self.address, name=self.name))
 
-    def bind(self, interface):
+    def bind_serial(self, interface):
         '''
         Bind the DucoNode to an interface
 
@@ -251,15 +255,26 @@ class DucoNode(object):
 
     def _perform_sample(self):
         '''
-        Take a sample from the DucoNode
+        Take a sample from the DucoNode and store it
         '''
         for name in self.parameters:
             parameter = self.parameters[name]
             cmd = self.PARAGET_COMMAND.format(node=self.number, para=parameter.getter_id)
             reply = self.interface.execute_command(cmd)
             value = self._parse_reply(reply, self.PARAGET_REGEX, 'value', unit=parameter.unit, scaling=parameter.scaling)
-            if value is not None:
-                parameter.set_value(value)
+            self.set_value(name, value)
+
+    def set_value(self, parameter, value):
+        '''
+        Store a sample datapoint in database
+
+        Args:
+            parameter (str): Type of measurement performed
+            value (str): Value for the datapoint
+        '''
+        if value is not None and parameter in self.parameters:
+            scaled = self.parameters[parameter].set_value(value)
+            self.interface.store_sample(self, parameter, scaled)
 
     def get_value(self, parameter):
         '''
@@ -356,8 +371,7 @@ class DucoBox(DucoNode):
         '''
         reply = self.interface.execute_command(DucoBox.FAN_SPEED_COMMAND)
         speed = self._parse_reply(reply, self.MATCH_FAN_SPEED, 'filtered', unit='rpm (filtered)')
-        if speed:
-            self.parameters[FANSPEED_STR].set_value(speed)
+        self.set_value(FANSPEED_STR, speed)
 
 
 class DucoNodeWithTemperature(DucoNode):
@@ -441,12 +455,10 @@ class DucoUserControlHumiditySensor(DucoUserControl, DucoNodeWithHumidity, DucoN
             reply = self.interface.execute_command(self.SENSOR_INFO_COMMAND)
             humidity = self._parse_reply(reply, self.MATCH_SENSOR_INFO_HUMIDITY, 'humidity',
                                          unit=HUMIDITY_UNIT, scaling=HUMIDITY_SCALING)
-            if humidity:
-                self.parameters[HUMIDITY_STR].set_value(humidity)
+            self.set_value(HUMIDITY_STR, humidity)
             temperature = self._parse_reply(reply, self.MATCH_SENSOR_INFO_TEMPERATURE,
                                             'temperature', unit=TEMPERATURE_UNIT, scaling=TEMPERATURE_SCALING)
-            if temperature:
-                self.parameters[TEMPERATURE_STR].set_value(temperature)
+            self.set_value(TEMPERATURE_STR, temperature)
 
 
 class DucoUserControlCO2Sensor(DucoNodeWithCO2, DucoNodeWithTemperature):
@@ -485,6 +497,95 @@ class DucoGrille(DucoNodeWithTemperature):
     KIND = 'CLIMA'
 
 
+class DucoDatabase(object):
+    '''
+    Class for a generic database where we want to store the samples from our ducobox
+    '''
+
+    def __init__(self):
+        pass
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        pass
+
+
+class InfluxDb(DucoDatabase):
+    '''
+    Class for the InfluxDB database where we want to store the samples from our ducobox
+    '''
+
+    def __init__(self, cfgfile):
+        '''
+        Create a connection (and initialize) the influxDB database
+
+        Args:
+            cfgfile (str): Configuration file for connection to influxdb
+        '''
+        super(InfluxDb, self).__init__()
+        try:
+            cfgparser = ConfigParser()
+            cfgparser.read(cfgfile)
+            section = 'InfluxDB'
+            url = cfgparser.get(section, 'url')
+            port = cfgparser.get(section, 'port')
+            user = cfgparser.get(section, 'user')
+            password = cfgparser.get(section, 'password')
+            dbname = cfgparser.get(section, 'database')
+            logging.info('InfluxDB connection to {url}:{port}, {name}'.format(url=url, port=port, name=dbname))
+            self.configure(url, port, user, password, dbname)
+        except (NoSectionError, NoOptionError):
+            logging.warning('InfluxDB configuration file {file} incomplete'.format(file=cfgfile))
+
+    def configure(self, url, port, user, password, dbname):
+        '''
+        Create a connection (and initialize) the influxDB database
+
+        Args:
+            url (str): URL of the influxDB server
+            port (str): Port of the influxDB server
+            user (str): Username for the influxDB server
+            password (str): Password for the user
+            dbname (str): Name of the influxDB to write to
+        '''
+        super(InfluxDb, self).__init__()
+        self.database = InfluxDBClient(url, port, user, password, dbname)
+        self.database.create_database(dbname)
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        super(InfluxDb, self).store_sample(node, measurement, value)
+        json_data = [
+            {
+                "measurement": measurement,
+                "tags":
+                    {
+                        "node": node.number,
+                        "name": node.name,
+                    },
+                "fields":
+                    {
+                        "value": value
+                    }
+            }
+        ]
+        self.database.write_points(json_data)
+
+
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
@@ -501,8 +602,9 @@ class DucoInterface(object):
         '''
         logging.info('Welcome to Duco Interface')
         self._serial = None
+        self._database = None
         self.nodes = []
-        self.bind(port)
+        self.bind_serial(port)
         self.cfgfile = cfgfile
         self._live = False
         self._extended = False
@@ -564,7 +666,7 @@ class DucoInterface(object):
             node._load(cfgparser)
         logging.debug('Load finished')
 
-    def bind(self, port):
+    def bind_serial(self, port):
         '''
         Bind serial port: configure and open serial port at 115200 in 8N1 mode
 
@@ -576,6 +678,27 @@ class DucoInterface(object):
         except SerialException:
             logging.error('Could not open {port}, continuing in offline mode'.format(port=port))
         logging.info('Opened serial port {port}'.format(port=port))
+
+    def bind_database(self, db):
+        '''
+        Bind to the database for logging sample data
+
+        Args:
+        - db (DucoDatabase): Database object to bind to
+        '''
+        self._database = db
+
+    def store_sample(self, node, measurement, value):
+        '''
+        Store a sample in the database
+
+        Args:
+            node (DucoNode): Node for which to store the sample
+            measurement (str): Parameter to store
+            value (float): Scaled value to store in database
+        '''
+        if self._database:
+            self._database.store_sample(node, measurement, value)
 
     def execute_command(self, command):
         '''
@@ -692,11 +815,18 @@ def ducobox_wrapper(args):
     parser.add_argument('-n', '--network', type=str, dest='network',
                         help='File where the network configuration is stored',
                         default='duco_network.ini', action='store',)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--influxdb', type=str, dest='influxdb',
+                       help='Configuration file of the influxdb database to write to',
+                       default=None, action='store',)
     args = parser.parse_args(args)
 
     set_logging_level(args.loglevel)
 
     itf = DucoInterface(port=args.port, cfgfile=args.network)
+
+    if args.influxdb is not None:
+        itf.bind_database(InfluxDb(args.influxdb))
 
     itf.find_nodes()
 
