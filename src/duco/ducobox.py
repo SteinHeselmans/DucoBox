@@ -602,6 +602,7 @@ class DucoInterface(object):
         '''
         logging.info('Welcome to Duco Interface')
         self._serial = None
+        self._database = None
         self.nodes = []
         self.bind_serial(port)
         self.cfgfile = cfgfile
@@ -685,7 +686,7 @@ class DucoInterface(object):
         Args:
         - db (DucoDatabase): Database object to bind to
         '''
-        self.database = db
+        self._database = db
 
     def store_sample(self, node, measurement, value):
         '''
@@ -696,7 +697,8 @@ class DucoInterface(object):
             measurement (str): Parameter to store
             value (float): Scaled value to store in database
         '''
-        self.database.store_sample(node, measurement, value)
+        if self._database:
+            self._database.store_sample(node, measurement, value)
 
     def execute_command(self, command):
         '''
