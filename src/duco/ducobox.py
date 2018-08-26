@@ -583,7 +583,10 @@ class InfluxDb(DucoDatabase):
                     }
             }
         ]
-        self.database.write_points(json_data)
+        try:
+            self.database.write_points(json_data)
+        except influxdb.exceptions.InfluxDBServerError:
+            logging.warning('Could not write to influxDB')
 
 
 class DucoInterface(object):
