@@ -13,6 +13,7 @@ import logging
 import time
 from serial import Serial, SerialException
 from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBServerError
 
 # Get version from file
 __version__ = 'unknown'
@@ -585,7 +586,7 @@ class InfluxDb(DucoDatabase):
         ]
         try:
             self.database.write_points(json_data)
-        except influxdb.exceptions.InfluxDBServerError:
+        except InfluxDBServerError:
             logging.warning('Could not write to influxDB')
 
 
