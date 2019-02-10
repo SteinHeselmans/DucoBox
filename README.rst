@@ -109,7 +109,7 @@ Data can be logged to an influxDB server, by passing a configuration file to the
 
 Format of this configuration file through an example:
 
-.. code-block::
+.. code-block:: ini
 
     [InfluxDB]
     url = localhost

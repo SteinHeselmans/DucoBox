@@ -95,6 +95,10 @@ pip-selfcheck.json
 # vim
 *.swp
 
+
+# Offline version file
+src/duco/__ducobox_version__.py
+
 # Project stuff
 duco_network.ini
 influxdb.ini

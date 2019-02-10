@@ -3,6 +3,9 @@ from __future__ import unicode_literals
 
 import sys, os, subprocess
 
+from pkg_resources import get_distribution
+pkg_version = get_distribution('duco.ducobox').version
+
 # Append src directory to path so that autodoc can find the python module
 sys.path.append("src")
 
@@ -30,7 +33,7 @@ project = 'ducobox'
 year = '2017'
 author = 'Stein Heselmans'
 copyright = '{0}, {1}'.format(year, author)
-version = release = '0.1.0'
+version = release = pkg_version
 
 pygments_style = 'trac'
 templates_path = ['.']

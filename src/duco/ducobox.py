@@ -14,9 +14,12 @@ import time
 from serial import Serial, SerialException
 from influxdb import InfluxDBClient
 
-# Get version from file
-__version__ = 'unknown'
-exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "__version__.py")).read())
+try:
+    from .__ducobox_version__ import version as ducobox_version
+except ImportError:
+    ducobox_version = 'version not available from scm'
+
+__version__ = ducobox_version
 
 DEFAULT_LOGLEVEL = 'info'
 DEFAULT_INTERVAL = 300
