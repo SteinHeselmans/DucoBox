@@ -22,7 +22,7 @@ matrix:
     - python: '3.6'
       env:
         - TOXENV=py36,codecov
-    - python: '3.7'
+    - python: '3.7-dev'
       env:
         - TOXENV=py37,codecov
     - python: 'pypy-5.4'
