@@ -7,7 +7,6 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 import sys
-import os
 import re
 import logging
 import time
@@ -163,9 +162,9 @@ class DucoNode(object):
     '''Class for holding a DucoNode object: a generic device in the Duco network'''
 
     KIND = None
-    SENSOR_INFO_COMMAND = 'sensorinfo'
-    PARAGET_COMMAND = 'nodeparaget {node} {para}'
-    PARAGET_REGEX = '-->\s*(?P<value>\d+)'
+    SENSOR_INFO_COMMAND = r'sensorinfo'
+    PARAGET_COMMAND = r'nodeparaget {node} {para}'
+    PARAGET_REGEX = r'-->\s*(?P<value>\d+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -325,14 +324,14 @@ class DucoBox(DucoNode):
 
     KIND = 'BOX'
 
-    FAN_SPEED_COMMAND = 'fanspeed'
-    MATCH_FAN_SPEED = 'Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+)'
-    BOARD_INFO_COMMAND = 'boardinfo'
-    MATCH_BOOT_SOFTWARE = 'BootSW\s*:\s*(?P<bootsw>.+)'
-    MATCH_SERIAL = 'Serial\s*:\s*(?P<serial>.+)'
-    MATCH_BOARD_NAME = 'Board\s*:\s*(?P<board>.+)'
-    MATCH_BOARD_TYPE = 'Type\s*:\s*(?P<type>.+)'
-    MATCH_DEVICE_ID = 'DevId\s*:\s*(?P<deviceid>.+)'
+    FAN_SPEED_COMMAND = r'fanspeed'
+    MATCH_FAN_SPEED = r'Actual\s*(?P<actual>\d+).*Filtered\s*(?P<filtered>\d+)'
+    BOARD_INFO_COMMAND = r'boardinfo'
+    MATCH_BOOT_SOFTWARE = r'BootSW\s*:\s*(?P<bootsw>.+)'
+    MATCH_SERIAL = r'Serial\s*:\s*(?P<serial>.+)'
+    MATCH_BOARD_NAME = r'Board\s*:\s*(?P<board>.+)'
+    MATCH_BOARD_TYPE = r'Type\s*:\s*(?P<type>.+)'
+    MATCH_DEVICE_ID = r'DevId\s*:\s*(?P<deviceid>.+)'
 
     def __init__(self, number, address, interface=None):
         '''
@@ -446,8 +445,8 @@ class DucoUserControlHumiditySensor(DucoUserControl, DucoNodeWithHumidity, DucoN
 
     KIND = 'UCRH'
 
-    MATCH_SENSOR_INFO_HUMIDITY = 'RH\s*\:\s*(?P<humidity>\d+)'
-    MATCH_SENSOR_INFO_TEMPERATURE = 'TEMP\s*\:\s*(?P<temperature>\d+)'
+    MATCH_SENSOR_INFO_HUMIDITY = r'RH\s*\:\s*(?P<humidity>\d+)'
+    MATCH_SENSOR_INFO_TEMPERATURE = r'TEMP\s*\:\s*(?P<temperature>\d+)'
 
     def _perform_sample(self):
         '''
@@ -596,8 +595,8 @@ class InfluxDb(DucoDatabase):
 class DucoInterface(object):
     '''Class for interfacing with Duco devices'''
 
-    LIST_NETWORK_COMMAND = 'network'
-    MATCH_NETWORK_COMMAND = '^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
+    LIST_NETWORK_COMMAND = r'network'
+    MATCH_NETWORK_COMMAND = r'^\s*(?P<node>\d+)\s*\|\s*(?P<address>\d+)\s*\|\s*(?P<kind>\w+).*$'
 
     def __init__(self, port='/dev/ttyUSB0', cfgfile=None):
         '''
