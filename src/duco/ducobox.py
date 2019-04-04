@@ -719,7 +719,7 @@ class DucoInterface(object):
         logging.debug('Serial command:\n{command}'.format(command=command))
         reply = ''
         if self._serial:
-            self._serial.write('\r')
+            self._serial.write('\r'.encode())
             time.sleep(SERIAL_CHAR_INTERVAL)
             self._serial.readline()
             cmd = command.encode('utf-8')
@@ -727,7 +727,7 @@ class DucoInterface(object):
                 time.sleep(SERIAL_CHAR_INTERVAL)
                 self._serial.write(c)
             time.sleep(SERIAL_CHAR_INTERVAL)
-            self._serial.write('\r')
+            self._serial.write('\r'.encode())
             reply = str(self._serial.readline()).replace('\r', '\n')
             logging.debug('Serial reply:\n{reply}'.format(reply=reply))
         else:
