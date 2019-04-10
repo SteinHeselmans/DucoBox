@@ -1,7 +1,7 @@
 from unittest import TestCase
 try:
     from unittest.mock import MagicMock, patch
-except ImportError as err:
+except ImportError:
     from mock import MagicMock, patch
 
 import duco.ducobox as dut
